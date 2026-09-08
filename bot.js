@@ -8,34 +8,39 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const DB_FILE = "./database.json";
 
-function loadDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    return { users: {}, withdrawals: [] };
-  }
+let db = {
+  users: {},
+  withdrawals: []
+};
 
+// ================================
+// DATABASE
+// ================================
+
+if (fs.existsSync(DB_FILE)) {
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-  } catch {
-    return { users: {}, withdrawals: [] };
+    db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  } catch (error) {
+    console.log("Database tidak bisa dibaca.");
   }
 }
 
 function saveDB() {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  fs.writeFileSync(
+    DB_FILE,
+    JSON.stringify(db, null, 2)
+  );
 }
-
-const db = loadDB();
 
 function getUser(userId) {
   const id = String(userId);
 
   if (!db.users[id]) {
     db.users[id] = {
-      id: userId,
+      id: id,
       balance: config.START_BALANCE,
       referrals: 0,
-      referredBy: null,
-      createdAt: new Date().toISOString()
+      referredBy: null
     };
 
     saveDB();
@@ -43,6 +48,10 @@ function getUser(userId) {
 
   return db.users[id];
 }
+
+// ================================
+// CEK MEMBER CHANNEL
+// ================================
 
 async function isMember(userId) {
   try {
@@ -56,143 +65,252 @@ async function isMember(userId) {
       "administrator",
       "member"
     ].includes(member.status);
+
   } catch (error) {
-    console.log("Cek member gagal:", error.message);
+    console.log(
+      "Cek member gagal:",
+      error.message
+    );
+
     return false;
   }
 }
 
-function joinMessage() {
-  return (
-    "🔒 <b>AKSES TERBATAS</b>\n\n" +
-    "Untuk menggunakan bot ini, silakan bergabung terlebih dahulu ke channel resmi kami.\n\n" +
-    "Setelah bergabung, tekan tombol <b>Saya Sudah Bergabung</b>."
-  );
-}
-
-function joinKeyboard() {
-  return Markup.inlineKeyboard([
-    [
-      Markup.button.url(
-        "📢 Join Channel",
-        config.CHANNEL_LINK
-      )
-    ],
-    [
-      Markup.button.callback(
-        "✅ Saya Sudah Bergabung",
-        "CHECK_JOIN"
-      )
-    ]
-  ]);
-}
+// ================================
+// HALAMAN JOIN
+// ================================
 
 async function showJoin(ctx) {
   return ctx.reply(
-    joinMessage(),
-    {
-      parse_mode: "HTML",
-      ...joinKeyboard()
-    }
+    "🔐 AKSES TERBATAS\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+    "│ 📢 Silakan bergabung ke channel resmi\n" +
+    "│ terlebih dahulu untuk menggunakan bot.\n\n" +
+
+    "│ Setelah bergabung, tekan tombol\n" +
+    "│ Saya Sudah Bergabung.",
+    
+    Markup.inlineKeyboard([
+      [
+        Markup.button.url(
+          "📢 Join Channel",
+          config.CHANNEL_LINK
+        )
+      ],
+      [
+        Markup.button.callback(
+          "✅ Saya Sudah Bergabung",
+          "CHECK_JOIN"
+        )
+      ]
+    ])
   );
 }
 
+// ================================
+// DASHBOARD
+// ================================
+
 async function dashboard(ctx) {
-  const member = await isMember(ctx.from.id);
+
+  const member = await isMember(
+    ctx.from.id
+  );
 
   if (!member) {
     return showJoin(ctx);
   }
 
-  const user = getUser(ctx.from.id);
+  const user = getUser(
+    ctx.from.id
+  );
 
   const text =
-  "🎉 WELCOME TO CUAN REWARD BOT\n" +
-  "━━━━━━━━━━━━━━━━━━━━\n\n" +
+    "🎉 WELCOME TO CUAN REWARD BOT\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-  "Platform terpercaya untuk mendapatkan penghasilan harian dengan cepat dan aman.\n\n" +
+    "Platform referral terpercaya untuk mendapatkan\n" +
+    "penghasilan tambahan dengan mudah dan transparan.\n\n" +
 
-  "📊 STATISTIK AKUN ANDA\n" +
-  "│\n" +
-  `├ 🆔 ID User: ${user.id}\n` +
-  `├ 💰 Saldo: Rp ${user.balance.toLocaleString("id-ID")}\n` +
-  `└ 👥 Referral: ${user.referrals} Orang\n\n` +
+    "📊 STATISTIK AKUN ANDA\n" +
+    "│ 👤 ID User: " +
+    user.id +
+    "\n" +
 
-  "ℹ️ INFORMASI SISTEM\n" +
-  "│\n" +
-  `├ 🎁 Bonus Referral: Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User\n` +
-  `├ 💳 Minimal WD: Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}\n` +
-  "├ ⏱️ Proses WD: Manual oleh admin\n" +
-  `└ 👨‍💼 Admin: @${config.ADMIN_USERNAME}\n\n` +
+    "│ 💰 Saldo: Rp " +
+    user.balance.toLocaleString("id-ID") +
+    "\n" +
 
-  "━━━━━━━━━━━━━━━━━━━━\n" +
-  "💡 Klik menu 💰 Hasilkan Uang di bawah\n" +
-  "untuk membagikan link referral kamu dan\n" +
-  "mulai menghasilkan!";
+    "│ 👥 Referral: " +
+    user.referrals +
+    " Orang\n\n" +
 
-  const keyboard = Markup.inlineKeyboard([
-    [
-      Markup.button.callback(
-        "💰 Hasilkan Uang",
-        "EARN"
-      )
-    ],
-    [
-      Markup.button.callback(
-        "💳 Withdraw",
-        "WITHDRAW"
-      ),
-      Markup.button.callback(
-        "📋 Riwayat WD",
-        "HISTORY"
-      )
-    ],
-    [
-      Markup.button.url(
-        "👨‍💼 Hubungi Admin",
-        `https://t.me/${config.ADMIN_USERNAME}`
-      )
-    ]
-  ]);
+    "ℹ️ INFORMASI SISTEM\n" +
+    "│ 🎁 Bonus Referral: Rp " +
+    config.REFERRAL_BONUS.toLocaleString("id-ID") +
+    " / User\n" +
 
-  return ctx.reply(text, {
-    parse_mode: "HTML",
-    ...keyboard
-  });
+    "│ 💳 Minimal WD: Rp " +
+    config.MIN_WITHDRAW.toLocaleString("id-ID") +
+    "\n" +
+
+    "│ 🕐 Proses WD: Manual oleh admin\n" +
+
+    "│ 👨‍💼 Admin: @" +
+    config.ADMIN_USERNAME +
+    "\n\n" +
+
+    "💡 Klik menu 💰 Hasilkan Uang di bawah\n" +
+    "untuk membagikan link referral kamu dan\n" +
+    "mulai menghasilkan!";
+
+  const keyboard =
+    Markup.inlineKeyboard([
+
+      [
+        Markup.button.callback(
+          "💰 Hasilkan Uang",
+          "EARN"
+        )
+      ],
+
+      [
+        Markup.button.callback(
+          "💳 Withdraw",
+          "WITHDRAW"
+        ),
+
+        Markup.button.callback(
+          "📋 Riwayat WD",
+          "HISTORY"
+        )
+      ],
+
+      [
+        Markup.button.url(
+          "👨‍💼 Hubungi Admin",
+          "https://t.me/" +
+          config.ADMIN_USERNAME
+        )
+      ]
+
+    ]);
+
+  return ctx.reply(
+    text,
+    keyboard
+  );
 }
 
+// ================================
+// START
+// ================================
+
 bot.start(async (ctx) => {
-  const member = await isMember(ctx.from.id);
+
+  const member = await isMember(
+    ctx.from.id
+  );
 
   if (!member) {
     return showJoin(ctx);
   }
 
-  const user = getUser(ctx.from.id);
+  const user = getUser(
+    ctx.from.id
+  );
 
   const startPayload =
-    ctx.message.text.split(" ")[1];
+    ctx.startPayload || "";
+
+  // ============================
+  // PROSES REFERRAL
+  // ============================
 
   if (
     startPayload &&
-    startPayload !== String(user.id) &&
+    startPayload !== String(ctx.from.id) &&
     !user.referredBy
   ) {
-    const referrerId = String(startPayload);
-    const referrer = db.users[referrerId];
+
+    const referrerId =
+      String(startPayload);
+
+    const referrer =
+      db.users[referrerId];
 
     if (referrer) {
-      user.referredBy = referrerId;
+
+      // Tandai user sudah menggunakan referral
+      user.referredBy =
+        referrerId;
+
+      // Tambahkan referral
       referrer.referrals += 1;
-      referrer.balance += config.REFERRAL_BONUS;
+
+      // Tambahkan bonus
+      referrer.balance +=
+        config.REFERRAL_BONUS;
 
       saveDB();
 
+      // ==========================
+      // NOTIFIKASI PENGUNDANG
+      // ==========================
+
+      try {
+
+        await bot.telegram.sendMessage(
+          referrerId,
+
+          "🎉 REFERRAL BERHASIL!\n" +
+          "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+          "│ 👤 Teman baru berhasil bergabung\n" +
+          "│ melalui link referral kamu.\n\n" +
+
+          "│ 🎁 Bonus Referral: Rp " +
+          config.REFERRAL_BONUS.toLocaleString("id-ID") +
+          "\n" +
+
+          "│ 💰 Saldo sekarang: Rp " +
+          referrer.balance.toLocaleString("id-ID") +
+          "\n" +
+
+          "│ 👥 Total Referral: " +
+          referrer.referrals +
+          " Orang\n\n" +
+
+          "💡 Ajak lebih banyak teman untuk\n" +
+          "mendapatkan bonus referral."
+        );
+
+      } catch (error) {
+
+        console.log(
+          "Gagal mengirim notifikasi:",
+          error.message
+        );
+
+      }
+
+      // ==========================
+      // PESAN USER BARU
+      // ==========================
+
       await ctx.reply(
-        `🎉 <b>Referral berhasil!</b>\n\n` +
-        `Kamu bergabung melalui link referral.\n` +
-        `Bonus referral diberikan kepada pemilik link sebesar <b>Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")}</b>.`,
-        { parse_mode: "HTML" }
+
+        "✅ PENDAFTARAN BERHASIL!\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "│ 👤 Kamu berhasil bergabung\n" +
+        "│ melalui link referral.\n\n" +
+
+        "│ 🎁 Referral berhasil tercatat.\n\n" +
+
+        "🏠 Silakan gunakan menu di bawah."
+
       );
     }
   }
@@ -200,224 +318,292 @@ bot.start(async (ctx) => {
   return dashboard(ctx);
 });
 
-bot.action("CHECK_JOIN", async (ctx) => {
-  await ctx.answerCbQuery();
+// ================================
+// CEK JOIN
+// ================================
 
-  const member = await isMember(ctx.from.id);
+bot.action(
+  "CHECK_JOIN",
+  async (ctx) => {
 
-  if (!member) {
-    return ctx.reply(
-      "❌ Kamu belum terdeteksi bergabung.\n\nSilakan join channel terlebih dahulu lalu tekan tombol ini lagi."
-    );
+    await ctx.answerCbQuery();
+
+    const member =
+      await isMember(ctx.from.id);
+
+    if (!member) {
+
+      return ctx.reply(
+        "❌ BELUM TERDETEKSI\n\n" +
+        "Silakan bergabung ke channel resmi\n" +
+        "kemudian tekan tombol ini lagi."
+      );
+
+    }
+
+    return dashboard(ctx);
   }
+);
 
-  await ctx.reply(
-    "✅ <b>Berhasil!</b>\n\nKamu sudah bergabung ke channel resmi.",
-    { parse_mode: "HTML" }
-  );
+// ================================
+// CEK MEMBER UNTUK TOMBOL
+// ================================
 
-  return dashboard(ctx);
-});
+bot.use(
+  async (ctx, next) => {
 
-bot.action("DASHBOARD", async (ctx) => {
-  await ctx.answerCbQuery();
-  return dashboard(ctx);
-});
+    if (
+      ctx.callbackQuery &&
+      ctx.callbackQuery.data !==
+      "CHECK_JOIN"
+    ) {
 
-bot.action("EARN", async (ctx) => {
-  await ctx.answerCbQuery();
+      const member =
+        await isMember(ctx.from.id);
 
-  const member = await isMember(ctx.from.id);
-
-  if (!member) {
-    return showJoin(ctx);
-  }
-
-  const user = getUser(ctx.from.id);
-
-  const me = await bot.telegram.getMe();
-
-  const referralLink =
-    `https://t.me/${me.username}?start=${user.id}`;
-
-  const text =
-    "💸 <b>PROGRAM REFERRAL GLOBAL EARNING</b>\n\n" +
-    "━━━━━━━━━━━━━━━━━━━━\n\n" +
-    "Bagikan link referral unik Anda kepada teman atau ke media sosial untuk mendapatkan penghasilan tambahan secara instan!\n\n" +
-    `🎁 <b>Bonus Referral: Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / Orang</b>\n\n` +
-    "🔗 <b>Link Referral Anda:</b>\n" +
-    `<code>${referralLink}</code>\n\n` +
-    "💡 <i>Semakin banyak teman yang bergabung menggunakan link Anda, semakin besar saldo yang bisa Anda tarik!</i>\n\n" +
-    "👇 Klik tombol <b>Bagikan Link Referral</b> di bawah untuk membagikan link Anda.";
-
-  return ctx.reply(text, {
-    parse_mode: "HTML",
-    ...Markup.inlineKeyboard([
-      [
-        Markup.button.url(
-          "📤 Bagikan Link Referral",
-          `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Yuk bergabung melalui link referral saya!")}`
-        )
-      ],
-      [
-        Markup.button.callback(
-          "🏠 Dashboard",
-          "DASHBOARD"
-        )
-      ]
-    ])
-  });
-});
-
-bot.action("WITHDRAW", async (ctx) => {
-  await ctx.answerCbQuery();
-
-  const member = await isMember(ctx.from.id);
-
-  if (!member) {
-    return showJoin(ctx);
-  }
-
-  const user = getUser(ctx.from.id);
-
-  if (user.balance < config.MIN_WITHDRAW) {
-    return ctx.reply(
-      "❌ <b>SALDO TIDAK MENCUKUPI</b>\n\n" +
-      `💰 Saldo Anda: <b>Rp ${user.balance.toLocaleString("id-ID")}</b>\n` +
-      `💳 Minimal WD: <b>Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}</b>\n\n` +
-      "Silakan kumpulkan saldo tambahan melalui menu <b>Hasilkan Uang</b>.",
-      {
-        parse_mode: "HTML",
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              "💰 Hasilkan Uang",
-              "EARN"
-            )
-          ],
-          [
-            Markup.button.callback(
-              "🏠 Dashboard",
-              "DASHBOARD"
-            )
-          ]
-        ])
+      if (!member) {
+        return showJoin(ctx);
       }
-    );
-  }
+    }
 
-  return ctx.reply(
-    "💳 <b>MENU WITHDRAW</b>\n\n" +
-    `Saldo Anda: <b>Rp ${user.balance.toLocaleString("id-ID")}</b>\n\n` +
-    "Untuk melakukan withdraw, hubungi admin resmi.\n\n" +
-    `👨‍💼 Admin: @${config.ADMIN_USERNAME}\n\n` +
-    "⚠️ Jangan pernah memberikan OTP, PIN, password, atau kode keamanan kepada siapa pun.",
-    {
-      parse_mode: "HTML",
-      ...Markup.inlineKeyboard([
+    return next();
+  }
+);
+
+// ================================
+// HASILKAN UANG
+// ================================
+
+bot.action(
+  "EARN",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    const me =
+      await bot.telegram.getMe();
+
+    const referralLink =
+      "https://t.me/" +
+      me.username +
+      "?start=" +
+      user.id;
+
+    const shareLink =
+      "https://t.me/share/url?url=" +
+      encodeURIComponent(referralLink) +
+      "&text=" +
+      encodeURIComponent(
+        "Yuk daftar melalui link referral saya!"
+      );
+
+    const text =
+
+      "💸 PROGRAM REFERRAL CUAN REWARD\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "Bagikan link referral kamu kepada\n" +
+      "teman untuk mendapatkan bonus referral.\n\n" +
+
+      "🎁 Bonus Referral: Rp " +
+      config.REFERRAL_BONUS.toLocaleString("id-ID") +
+      " / Orang\n\n" +
+
+      "🔗 Link Referral Anda:\n" +
+      referralLink +
+      "\n\n" +
+
+      "💡 Setiap referral yang memenuhi ketentuan\n" +
+      "akan tercatat ke akun kamu.\n\n" +
+
+      "👇 Klik tombol di bawah untuk membagikan.";
+
+    return ctx.reply(
+
+      text,
+
+      Markup.inlineKeyboard([
+
         [
           Markup.button.url(
-            "👨‍💼 Hubungi Admin",
-            `https://t.me/${config.ADMIN_USERNAME}`
+            "📤 Bagikan Link Referral",
+            shareLink
           )
         ],
+
         [
           Markup.button.callback(
             "🏠 Dashboard",
             "DASHBOARD"
           )
         ]
+
       ])
-    }
-  );
-});
-
-bot.action("HISTORY", async (ctx) => {
-  await ctx.answerCbQuery();
-
-  const member = await isMember(ctx.from.id);
-
-  if (!member) {
-    return showJoin(ctx);
-  }
-
-  const userId = String(ctx.from.id);
-
-  const history = db.withdrawals.filter(
-    (item) => String(item.userId) === userId
-  );
-
-  if (history.length === 0) {
-    return ctx.reply(
-      "📋 <b>RIWAYAT WITHDRAW</b>\n\n" +
-      "Belum ada riwayat withdraw.",
-      {
-        parse_mode: "HTML",
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              "🏠 Dashboard",
-              "DASHBOARD"
-            )
-          ]
-        ])
-      }
     );
   }
+);
 
-  let text =
-    "📋 <b>RIWAYAT WITHDRAW</b>\n\n";
+// ================================
+// KEMBALI DASHBOARD
+// ================================
 
-  history.forEach((item, index) => {
-    text +=
-      `${index + 1}. Rp ${item.amount.toLocaleString("id-ID")}\n` +
-      `Status: ${item.status}\n\n`;
-  });
+bot.action(
+  "DASHBOARD",
+  async (ctx) => {
 
-  return ctx.reply(text, {
-    parse_mode: "HTML",
-    ...Markup.inlineKeyboard([
-      [
-        Markup.button.callback(
-          "🏠 Dashboard",
-          "DASHBOARD"
-        )
-      ]
-    ])
-  });
-});
+    await ctx.answerCbQuery();
 
-bot.action("HELP", async (ctx) => {
-  await ctx.answerCbQuery();
+    return dashboard(ctx);
+  }
+);
 
-  return ctx.reply(
-    "🆘 <b>PUSAT BANTUAN</b>\n\n" +
-    "Jika membutuhkan bantuan, silakan hubungi admin resmi.\n\n" +
-    `👨‍💼 Admin: @${config.ADMIN_USERNAME}`,
-    {
-      parse_mode: "HTML",
-      ...Markup.inlineKeyboard([
-        [
-          Markup.button.url(
-            "👨‍💼 Hubungi Admin",
-            `https://t.me/${config.ADMIN_USERNAME}`
-          )
-        ],
-        [
-          Markup.button.callback(
-            "🏠 Dashboard",
-            "DASHBOARD"
-          )
-        ]
-      ])
+// ================================
+// WITHDRAW
+// ================================
+
+bot.action(
+  "WITHDRAW",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    if (
+      user.balance <
+      config.MIN_WITHDRAW
+    ) {
+
+      return ctx.reply(
+
+        "❌ SALDO TIDAK MENCUKUPI\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "│ 💰 Saldo Anda: Rp " +
+        user.balance.toLocaleString("id-ID") +
+        "\n" +
+
+        "│ 💳 Minimal WD: Rp " +
+        config.MIN_WITHDRAW.toLocaleString("id-ID") +
+        "\n\n" +
+
+        "💡 Silakan kumpulkan saldo tambahan\n" +
+        "melalui menu 💰 Hasilkan Uang."
+
+      );
     }
-  );
-});
+
+    return ctx.reply(
+
+      "💳 PENGAJUAN WITHDRAW\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "│ 💰 Saldo: Rp " +
+      user.balance.toLocaleString("id-ID") +
+      "\n" +
+
+      "│ 💳 Minimal WD: Rp " +
+      config.MIN_WITHDRAW.toLocaleString("id-ID") +
+      "\n\n" +
+
+      "📩 Silakan hubungi admin untuk\n" +
+      "proses withdraw.\n\n" +
+
+      "│ 🆔 ID User: " +
+      user.id +
+      "\n" +
+
+      "│ 👨‍💼 Admin: @" +
+      config.ADMIN_USERNAME +
+      "\n\n" +
+
+      "⚠️ Jangan pernah mengirim OTP, PIN,\n" +
+      "atau password kepada siapa pun."
+
+    );
+  }
+);
+
+// ================================
+// RIWAYAT WITHDRAW
+// ================================
+
+bot.action(
+  "HISTORY",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const userId =
+      String(ctx.from.id);
+
+    const history =
+      db.withdrawals.filter(
+        item =>
+          String(item.userId) === userId
+      );
+
+    if (history.length === 0) {
+
+      return ctx.reply(
+
+        "📋 RIWAYAT WITHDRAW\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "│ Belum ada riwayat withdraw."
+
+      );
+    }
+
+    let text =
+      "📋 RIWAYAT WITHDRAW\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n";
+
+    history.forEach(
+      (item, index) => {
+
+        text +=
+
+          "│ " +
+          (index + 1) +
+          ". Rp " +
+          Number(item.amount)
+            .toLocaleString("id-ID") +
+          "\n" +
+
+          "│ Status: " +
+          item.status +
+          "\n\n";
+      }
+    );
+
+    return ctx.reply(text);
+  }
+);
+
+// ================================
+// ERROR HANDLER
+// ================================
 
 bot.catch((error) => {
-  console.log("BOT ERROR:", error.message);
+
+  console.log(
+    "BOT ERROR:",
+    error
+  );
+
 });
+
+// ================================
+// JALANKAN BOT
+// ================================
 
 bot.launch();
 
-console.log("✅ CUAN REWARD BOT AKTIF");
+console.log(
+  "✅ CUAN REWARD BOT AKTIF"
+);
