@@ -128,7 +128,7 @@ async function dashboard(ctx, edit = false) {
     "ℹ️ *INFORMASI SISTEM*\n\n" +
     `🎁 Bonus Referral: *Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User*\n` +
     `💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
-    "⏱ Proses WD: Manual oleh admin\n" +
+    "⏱ Proses WD: 1-5 Menit (Otomatis)\n" +
     `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;
      💡 Klik menu *💰 Hasilkan Uang* di bawah
   untuk membagikan link referral kamu
@@ -326,6 +326,9 @@ bot.action(
       "Undang teman menggunakan link referral kamu.\n\n" +
       "🔗 *Link Referral Kamu:*\n" +
       `\`${referralLink}\``,
+      "💡 *Semakin banyak teman yang
+      bergabung menggunakan link Anda,
+      semakin besar saldo yang bisa Anda tarik!*",
       {
         parse_mode: "Markdown",
         ...Markup.inlineKeyboard([
