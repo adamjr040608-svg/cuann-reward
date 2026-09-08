@@ -132,7 +132,7 @@ async function dashboard(ctx, edit = false) {
     `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;
      "💡 Klik menu *💰 Hasilkan Uang* di bawah
   untuk membagikan link referral kamu
-  dan mulai menghasilkan!"
+  dan mulai menghasilkan!\n\n" +
 
   const keyboard =
     Markup.inlineKeyboard([
