@@ -328,7 +328,7 @@ bot.action(
       `\`${referralLink}\``,
       "💡 *Semakin banyak teman yang
       bergabung menggunakan link Anda,
-      semakin besar saldo yang bisa Anda tarik!*",
+      semakin besar saldo yang bisa Anda tarik!*\n\n" +
       {
         parse_mode: "Markdown",
         ...Markup.inlineKeyboard([
