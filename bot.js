@@ -22,6 +22,15 @@ if (fs.existsSync(DB_FILE)) {
     db = JSON.parse(
       fs.readFileSync(DB_FILE, "utf8")
     );
+
+    if (!db.users) {
+      db.users = {};
+    }
+
+    if (!db.withdrawals) {
+      db.withdrawals = [];
+    }
+
   } catch (error) {
     console.log("Database tidak bisa dibaca.");
   }
@@ -39,17 +48,36 @@ function saveDB() {
 // ================================
 
 function getUser(userId) {
-  const id = String(userId);
+
+  const id =
+    String(userId);
 
   if (!db.users[id]) {
+
     db.users[id] = {
+
       id: id,
-      balance: config.START_BALANCE,
-      referrals: 0,
-      referredBy: null,
-      withdrawStep: null,
-      withdrawAmount: null,
-      withdrawMethod: null
+
+      balance:
+        config.START_BALANCE,
+
+      referrals:
+        0,
+
+      referredBy:
+        null,
+
+      withdrawStep:
+        null,
+
+      withdrawAmount:
+        null,
+
+      withdrawMethod:
+        null,
+
+      withdrawAccount:
+        null
     };
 
     saveDB();
@@ -68,6 +96,7 @@ async function dashboard(ctx) {
     getUser(ctx.from.id);
 
   const text =
+
     "🎉 WELCOME TO CUAN REWARD BOT\n" +
     "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
@@ -76,6 +105,7 @@ async function dashboard(ctx) {
 
     "📊 STATISTIK AKUN ANDA\n" +
     "│\n" +
+
     "├ 👤 ID User: " +
     user.id +
     "\n" +
@@ -112,6 +142,7 @@ async function dashboard(ctx) {
     "mulai menghasilkan!";
 
   const keyboard =
+
     Markup.inlineKeyboard([
 
       [
@@ -161,10 +192,19 @@ bot.start(async (ctx) => {
   const startPayload =
     ctx.startPayload || "";
 
+  // ==============================
+  // REFERRAL
+  // ==============================
+
   if (
+
     startPayload &&
-    startPayload !== String(ctx.from.id) &&
+
+    startPayload !==
+    String(ctx.from.id) &&
+
     !user.referredBy
+
   ) {
 
     const referrerId =
@@ -178,12 +218,17 @@ bot.start(async (ctx) => {
       user.referredBy =
         referrerId;
 
-      referrer.referrals += 1;
+      referrer.referrals +=
+        1;
 
       referrer.balance +=
         config.REFERRAL_BONUS;
 
       saveDB();
+
+      // ==========================
+      // NOTIFIKASI PENGUNDANG
+      // ==========================
 
       try {
 
@@ -198,25 +243,34 @@ bot.start(async (ctx) => {
           "melalui link referral kamu.\n\n" +
 
           "🎁 Bonus Referral: Rp " +
-          config.REFERRAL_BONUS.toLocaleString("id-ID") +
+
+          config.REFERRAL_BONUS
+            .toLocaleString("id-ID") +
+
           "\n\n" +
 
           "💰 Saldo sekarang: Rp " +
-          referrer.balance.toLocaleString("id-ID") +
+
+          referrer.balance
+            .toLocaleString("id-ID") +
+
           "\n" +
 
           "👥 Total Referral: " +
+
           referrer.referrals +
+
           " Orang\n\n" +
 
-          "✅ Bonus sudah masuk ke saldo kamu."
+          "💡 Ajak lebih banyak teman untuk\n" +
+          "mendapatkan bonus referral."
 
         );
 
       } catch (error) {
 
         console.log(
-          "Gagal mengirim notifikasi referral:",
+          "Gagal mengirim notifikasi:",
           error.message
         );
 
@@ -224,17 +278,18 @@ bot.start(async (ctx) => {
 
       await ctx.reply(
 
-        "🎉 SELAMAT DATANG DI CUAN REWARD!\n" +
+        "✅ PENDAFTARAN BERHASIL!\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-        "✅ Kamu berhasil bergabung melalui\n" +
-        "link referral.\n\n" +
+        "👤 Kamu berhasil bergabung\n" +
+        "melalui link referral.\n\n" +
 
         "🎁 Referral berhasil tercatat.\n\n" +
 
         "🏠 Silakan gunakan menu di bawah."
 
       );
+
     }
 
   } else {
@@ -252,6 +307,7 @@ bot.start(async (ctx) => {
       "🏠 Silakan gunakan menu di bawah."
 
     );
+
   }
 
   return dashboard(ctx);
@@ -274,21 +330,29 @@ bot.action(
       await bot.telegram.getMe();
 
     const referralLink =
+
       "https://t.me/" +
       me.username +
       "?start=" +
       user.id;
 
     const shareLink =
+
       "https://t.me/share/url?url=" +
-      encodeURIComponent(referralLink) +
+
+      encodeURIComponent(
+        referralLink
+      ) +
+
       "&text=" +
+
       encodeURIComponent(
         "Yuk daftar melalui link referral saya!"
       );
 
     const text =
-      "💸 PROGRAM REFERRAL GLOBAL EARNING\n" +
+
+      "💸 PROGRAM REFERRAL CUAN REWARD\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
       "Bagikan link referral unik Anda kepada\n" +
@@ -297,11 +361,16 @@ bot.action(
       "instan!\n\n" +
 
       "🎁 Bonus Referral: Rp " +
-      config.REFERRAL_BONUS.toLocaleString("id-ID") +
+
+      config.REFERRAL_BONUS
+        .toLocaleString("id-ID") +
+
       " / Orang\n\n" +
 
       "🔗 Link Referral Anda:\n" +
+
       referralLink +
+
       "\n\n" +
 
       "💡 Semakin banyak teman yang bergabung\n" +
@@ -374,11 +443,17 @@ bot.action(
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
         "│ 💰 Saldo Anda: Rp " +
-        user.balance.toLocaleString("id-ID") +
+
+        user.balance
+          .toLocaleString("id-ID") +
+
         "\n" +
 
         "│ 💳 Minimal WD: Rp " +
-        config.MIN_WITHDRAW.toLocaleString("id-ID") +
+
+        config.MIN_WITHDRAW
+          .toLocaleString("id-ID") +
+
         "\n\n" +
 
         "💡 Silakan kumpulkan saldo tambahan\n" +
@@ -387,7 +462,17 @@ bot.action(
       );
     }
 
-    user.withdrawStep = "amount";
+    user.withdrawStep =
+      "amount";
+
+    user.withdrawAmount =
+      null;
+
+    user.withdrawMethod =
+      null;
+
+    user.withdrawAccount =
+      null;
 
     saveDB();
 
@@ -397,115 +482,229 @@ bot.action(
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
       "💰 Saldo Anda: Rp " +
-      user.balance.toLocaleString("id-ID") +
-      "\n" +
 
-      "💳 Minimal WD: Rp " +
-      config.MIN_WITHDRAW.toLocaleString("id-ID") +
+      user.balance
+        .toLocaleString("id-ID") +
+
       "\n\n" +
 
       "Ketik jumlah WD yang ingin diajukan.\n\n" +
-      "Contoh: 150000"
+
+      "Contoh:\n" +
+      "150000"
 
     );
   }
 );
 
 // ================================
-// INPUT WITHDRAW
+// INPUT TEXT WD
 // ================================
 
-bot.on("text", async (ctx, next) => {
+bot.on(
+  "text",
+  async (ctx, next) => {
 
-  const user =
-    getUser(ctx.from.id);
+    const user =
+      getUser(ctx.from.id);
 
-  if (!user.withdrawStep) {
-    return next();
-  }
+    if (!user.withdrawStep) {
+      return next();
+    }
 
-  const text =
-    ctx.message.text.trim();
+    const text =
+      ctx.message.text.trim();
 
-  // ==============================
-  // JUMLAH WD
-  // ==============================
-
-  if (user.withdrawStep === "amount") {
-
-    const amount =
-      Number(
-        text.replace(/\D/g, "")
-      );
+    // ==============================
+    // JUMLAH WD
+    // ==============================
 
     if (
-      !amount ||
-      amount < config.MIN_WITHDRAW
+      user.withdrawStep ===
+      "amount"
     ) {
 
+      const amount =
+        Number(
+          text.replace(/\D/g, "")
+        );
+
+      if (!amount) {
+
+        return ctx.reply(
+
+          "❌ JUMLAH TIDAK VALID\n\n" +
+          "Contoh: 150000"
+
+        );
+      }
+
+      if (
+        amount <
+        config.MIN_WITHDRAW
+      ) {
+
+        return ctx.reply(
+
+          "❌ JUMLAH TERLALU KECIL\n\n" +
+
+          "Minimal WD: Rp " +
+
+          config.MIN_WITHDRAW
+            .toLocaleString("id-ID")
+
+        );
+      }
+
+      if (
+        amount >
+        user.balance
+      ) {
+
+        return ctx.reply(
+
+          "❌ SALDO TIDAK CUKUP\n\n" +
+
+          "Saldo Anda: Rp " +
+
+          user.balance
+            .toLocaleString("id-ID")
+
+        );
+      }
+
+      user.withdrawAmount =
+        amount;
+
+      user.withdrawStep =
+        "method";
+
+      saveDB();
+
       return ctx.reply(
 
-        "❌ JUMLAH WD TIDAK VALID\n" +
+        "💳 PILIH METODE WD\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-        "Minimal WD: Rp " +
-        config.MIN_WITHDRAW.toLocaleString("id-ID") +
+        "💰 Jumlah WD: Rp " +
+
+        amount
+          .toLocaleString("id-ID") +
+
         "\n\n" +
 
-        "Contoh: 150000"
+        "Pilih metode pencairan:",
 
+        Markup.inlineKeyboard([
+
+          [
+            Markup.button.callback(
+              "💙 DANA",
+              "WD_DANA"
+            )
+          ],
+
+          [
+            Markup.button.callback(
+              "🟣 OVO",
+              "WD_OVO"
+            ),
+
+            Markup.button.callback(
+              "🟢 GoPay",
+              "WD_GOPAY"
+            )
+          ],
+
+          [
+            Markup.button.callback(
+              "🏦 BANK",
+              "WD_BANK"
+            )
+          ]
+
+        ])
       );
     }
 
-    if (amount > user.balance) {
+    // ==============================
+    // NOMOR AKUN
+    // ==============================
+
+    if (
+      user.withdrawStep ===
+      "account"
+    ) {
+
+      user.withdrawAccount =
+        text;
+
+      user.withdrawStep =
+        "confirm";
+
+      saveDB();
 
       return ctx.reply(
 
-        "❌ SALDO TIDAK CUKUP\n" +
+        "🔎 KONFIRMASI WITHDRAW\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-        "💰 Saldo Anda: Rp " +
-        user.balance.toLocaleString("id-ID")
+        "💰 Jumlah: Rp " +
 
+        user.withdrawAmount
+          .toLocaleString("id-ID") +
+
+        "\n" +
+
+        "💳 Metode: " +
+        user.withdrawMethod +
+        "\n" +
+
+        "📱 Nomor/Rekening: " +
+        user.withdrawAccount +
+        "\n\n" +
+
+        "Apakah data sudah benar?",
+
+        Markup.inlineKeyboard([
+
+          [
+            Markup.button.callback(
+              "✅ KONFIRMASI",
+              "WD_CONFIRM"
+            )
+          ],
+
+          [
+            Markup.button.callback(
+              "❌ BATAL",
+              "WD_CANCEL"
+            )
+          ]
+
+        ])
       );
     }
 
-    user.withdrawAmount =
-      amount;
-
-    user.withdrawStep =
-      "method";
-
-    saveDB();
-
-    return ctx.reply(
-
-      "💳 METODE PENCAIRAN\n" +
-      "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-      "💰 Jumlah WD: Rp " +
-      amount.toLocaleString("id-ID") +
-      "\n\n" +
-
-      "Ketik metode pencairan.\n\n" +
-
-      "Contoh:\n" +
-      "DANA\n" +
-      "OVO\n" +
-      "GoPay\n" +
-      "Bank BCA"
-
-    );
+    return next();
   }
+);
 
-  // ==============================
-  // METODE WD
-  // ==============================
+// ================================
+// PILIH DANA
+// ================================
 
-  if (user.withdrawStep === "method") {
+bot.action(
+  "WD_DANA",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
 
     user.withdrawMethod =
-      text;
+      "DANA";
 
     user.withdrawStep =
       "account";
@@ -514,37 +713,190 @@ bot.on("text", async (ctx, next) => {
 
     return ctx.reply(
 
-      "📱 NOMOR REKENING / E-WALLET\n" +
+      "💙 WD DANA\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-      "💳 Metode: " +
-      user.withdrawMethod +
-      "\n" +
-
       "💰 Jumlah: Rp " +
-      user.withdrawAmount.toLocaleString("id-ID") +
+
+      user.withdrawAmount
+        .toLocaleString("id-ID") +
+
       "\n\n" +
 
-      "Ketik nomor rekening atau nomor e-wallet\n" +
-      "untuk menerima pembayaran."
+      "Masukkan nomor DANA kamu."
 
     );
   }
+);
 
-  // ==============================
-  // NOMOR REKENING / E-WALLET
-  // ==============================
+// ================================
+// PILIH OVO
+// ================================
 
-  if (user.withdrawStep === "account") {
+bot.action(
+  "WD_OVO",
+  async (ctx) => {
 
-    const account =
-      text;
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    user.withdrawMethod =
+      "OVO";
+
+    user.withdrawStep =
+      "account";
+
+    saveDB();
+
+    return ctx.reply(
+
+      "🟣 WD OVO\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "💰 Jumlah: Rp " +
+
+      user.withdrawAmount
+        .toLocaleString("id-ID") +
+
+      "\n\n" +
+
+      "Masukkan nomor OVO kamu."
+
+    );
+  }
+);
+
+// ================================
+// PILIH GOPAY
+// ================================
+
+bot.action(
+  "WD_GOPAY",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    user.withdrawMethod =
+      "GoPay";
+
+    user.withdrawStep =
+      "account";
+
+    saveDB();
+
+    return ctx.reply(
+
+      "🟢 WD GOPAY\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "💰 Jumlah: Rp " +
+
+      user.withdrawAmount
+        .toLocaleString("id-ID") +
+
+      "\n\n" +
+
+      "Masukkan nomor GoPay kamu."
+
+    );
+  }
+);
+
+// ================================
+// PILIH BANK
+// ================================
+
+bot.action(
+  "WD_BANK",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    user.withdrawMethod =
+      "BANK";
+
+    user.withdrawStep =
+      "account";
+
+    saveDB();
+
+    return ctx.reply(
+
+      "🏦 WD BANK\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "💰 Jumlah: Rp " +
+
+      user.withdrawAmount
+        .toLocaleString("id-ID") +
+
+      "\n\n" +
+
+      "Masukkan nomor rekening bank kamu."
+
+    );
+  }
+);
+
+// ================================
+// KONFIRMASI WD
+// ================================
+
+bot.action(
+  "WD_CONFIRM",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    if (
+      !user.withdrawAmount ||
+      !user.withdrawMethod ||
+      !user.withdrawAccount
+    ) {
+
+      return ctx.reply(
+        "❌ DATA WD TIDAK LENGKAP."
+      );
+    }
 
     const amount =
-      user.withdrawAmount;
+      Number(user.withdrawAmount);
 
-    const method =
-      user.withdrawMethod;
+    if (
+      amount <
+      config.MIN_WITHDRAW
+    ) {
+
+      return ctx.reply(
+        "❌ Jumlah WD tidak memenuhi minimum."
+      );
+    }
+
+    if (
+      amount >
+      user.balance
+    ) {
+
+      user.withdrawStep =
+        null;
+
+      saveDB();
+
+      return ctx.reply(
+        "❌ SALDO TIDAK CUKUP."
+      );
+    }
 
     const withdrawal = {
 
@@ -565,10 +917,10 @@ bot.on("text", async (ctx, next) => {
         amount,
 
       method:
-        method,
+        user.withdrawMethod,
 
       account:
-        account,
+        user.withdrawAccount,
 
       status:
         "PENDING",
@@ -582,6 +934,7 @@ bot.on("text", async (ctx, next) => {
       withdrawal
     );
 
+    // Potong saldo setelah konfirmasi
     user.balance -=
       amount;
 
@@ -592,6 +945,9 @@ bot.on("text", async (ctx, next) => {
       null;
 
     user.withdrawMethod =
+      null;
+
+    user.withdrawAccount =
       null;
 
     saveDB();
@@ -622,24 +978,30 @@ bot.on("text", async (ctx, next) => {
         "\n" +
 
         "🔗 Username: @" +
-        (withdrawal.username || "-") +
+        (
+          withdrawal.username ||
+          "-"
+        ) +
         "\n\n" +
 
         "💰 Jumlah: Rp " +
-        amount.toLocaleString("id-ID") +
+
+        amount
+          .toLocaleString("id-ID") +
+
         "\n" +
 
         "💳 Metode: " +
-        method +
+        withdrawal.method +
         "\n" +
 
-        "📱 Rekening/E-Wallet: " +
-        account +
+        "📱 Nomor/Rekening: " +
+        withdrawal.account +
         "\n\n" +
 
         "⏳ Status: PENDING\n\n" +
 
-        "Silakan proses pembayaran secara manual."
+        "Silakan proses pembayaran."
 
       );
 
@@ -654,7 +1016,7 @@ bot.on("text", async (ctx, next) => {
 
     return ctx.reply(
 
-      "✅ PENGAJUAN WD BERHASIL\n" +
+      "✅ WD BERHASIL DIAJUKAN\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
       "🆔 ID WD: " +
@@ -662,11 +1024,14 @@ bot.on("text", async (ctx, next) => {
       "\n" +
 
       "💰 Jumlah: Rp " +
-      amount.toLocaleString("id-ID") +
+
+      amount
+        .toLocaleString("id-ID") +
+
       "\n" +
 
       "💳 Metode: " +
-      method +
+      withdrawal.method +
       "\n\n" +
 
       "⏳ Status: PENDING\n\n" +
@@ -676,8 +1041,40 @@ bot.on("text", async (ctx, next) => {
 
     );
   }
+);
 
-});
+// ================================
+// BATAL WD
+// ================================
+
+bot.action(
+  "WD_CANCEL",
+  async (ctx) => {
+
+    await ctx.answerCbQuery();
+
+    const user =
+      getUser(ctx.from.id);
+
+    user.withdrawStep =
+      null;
+
+    user.withdrawAmount =
+      null;
+
+    user.withdrawMethod =
+      null;
+
+    user.withdrawAccount =
+      null;
+
+    saveDB();
+
+    return ctx.reply(
+      "❌ PENGAJUAN WD DIBATALKAN."
+    );
+  }
+);
 
 // ================================
 // RIWAYAT WD
@@ -712,6 +1109,7 @@ bot.action(
     }
 
     let text =
+
       "📋 RIWAYAT WITHDRAW\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n";
 
@@ -719,11 +1117,18 @@ bot.action(
       (item, index) => {
 
         text +=
+
           "│ " +
           (index + 1) +
           ". Rp " +
+
           Number(item.amount)
             .toLocaleString("id-ID") +
+
+          "\n" +
+
+          "│ Metode: " +
+          item.method +
           "\n" +
 
           "│ Status: " +
