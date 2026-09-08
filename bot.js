@@ -46,7 +46,10 @@ function getUser(userId) {
       id: id,
       balance: config.START_BALANCE,
       referrals: 0,
-      referredBy: null
+      referredBy: null,
+      withdrawStep: null,
+      withdrawAmount: null,
+      withdrawMethod: null
     };
 
     saveDB();
@@ -158,10 +161,6 @@ bot.start(async (ctx) => {
   const startPayload =
     ctx.startPayload || "";
 
-  // ==============================
-  // REFERRAL
-  // ==============================
-
   if (
     startPayload &&
     startPayload !== String(ctx.from.id) &&
@@ -176,22 +175,15 @@ bot.start(async (ctx) => {
 
     if (referrer) {
 
-      // Tandai agar tidak dihitung dua kali
       user.referredBy =
         referrerId;
 
-      // Tambah jumlah referral
       referrer.referrals += 1;
 
-      // Tambah bonus
       referrer.balance +=
         config.REFERRAL_BONUS;
 
       saveDB();
-
-      // ==========================
-      // NOTIFIKASI PENGUNDANG
-      // ==========================
 
       try {
 
@@ -395,36 +387,297 @@ bot.action(
       );
     }
 
+    user.withdrawStep = "amount";
+
+    saveDB();
+
     return ctx.reply(
 
       "💳 PENGAJUAN WITHDRAW\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-      "│ 💰 Saldo: Rp " +
+      "💰 Saldo Anda: Rp " +
       user.balance.toLocaleString("id-ID") +
       "\n" +
 
-      "│ 💳 Minimal WD: Rp " +
+      "💳 Minimal WD: Rp " +
       config.MIN_WITHDRAW.toLocaleString("id-ID") +
       "\n\n" +
 
-      "📩 Silakan hubungi admin untuk\n" +
-      "proses withdraw.\n\n" +
-
-      "│ 🆔 ID User: " +
-      user.id +
-      "\n" +
-
-      "│ 👨‍💼 Admin: @" +
-      config.ADMIN_USERNAME +
-      "\n\n" +
-
-      "⚠️ Jangan pernah mengirim OTP, PIN,\n" +
-      "atau password kepada siapa pun."
+      "Ketik jumlah WD yang ingin diajukan.\n\n" +
+      "Contoh: 150000"
 
     );
   }
 );
+
+// ================================
+// INPUT WITHDRAW
+// ================================
+
+bot.on("text", async (ctx, next) => {
+
+  const user =
+    getUser(ctx.from.id);
+
+  if (!user.withdrawStep) {
+    return next();
+  }
+
+  const text =
+    ctx.message.text.trim();
+
+  // ==============================
+  // JUMLAH WD
+  // ==============================
+
+  if (user.withdrawStep === "amount") {
+
+    const amount =
+      Number(
+        text.replace(/\D/g, "")
+      );
+
+    if (
+      !amount ||
+      amount < config.MIN_WITHDRAW
+    ) {
+
+      return ctx.reply(
+
+        "❌ JUMLAH WD TIDAK VALID\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "Minimal WD: Rp " +
+        config.MIN_WITHDRAW.toLocaleString("id-ID") +
+        "\n\n" +
+
+        "Contoh: 150000"
+
+      );
+    }
+
+    if (amount > user.balance) {
+
+      return ctx.reply(
+
+        "❌ SALDO TIDAK CUKUP\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "💰 Saldo Anda: Rp " +
+        user.balance.toLocaleString("id-ID")
+
+      );
+    }
+
+    user.withdrawAmount =
+      amount;
+
+    user.withdrawStep =
+      "method";
+
+    saveDB();
+
+    return ctx.reply(
+
+      "💳 METODE PENCAIRAN\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "💰 Jumlah WD: Rp " +
+      amount.toLocaleString("id-ID") +
+      "\n\n" +
+
+      "Ketik metode pencairan.\n\n" +
+
+      "Contoh:\n" +
+      "DANA\n" +
+      "OVO\n" +
+      "GoPay\n" +
+      "Bank BCA"
+
+    );
+  }
+
+  // ==============================
+  // METODE WD
+  // ==============================
+
+  if (user.withdrawStep === "method") {
+
+    user.withdrawMethod =
+      text;
+
+    user.withdrawStep =
+      "account";
+
+    saveDB();
+
+    return ctx.reply(
+
+      "📱 NOMOR REKENING / E-WALLET\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "💳 Metode: " +
+      user.withdrawMethod +
+      "\n" +
+
+      "💰 Jumlah: Rp " +
+      user.withdrawAmount.toLocaleString("id-ID") +
+      "\n\n" +
+
+      "Ketik nomor rekening atau nomor e-wallet\n" +
+      "untuk menerima pembayaran."
+
+    );
+  }
+
+  // ==============================
+  // NOMOR REKENING / E-WALLET
+  // ==============================
+
+  if (user.withdrawStep === "account") {
+
+    const account =
+      text;
+
+    const amount =
+      user.withdrawAmount;
+
+    const method =
+      user.withdrawMethod;
+
+    const withdrawal = {
+
+      id:
+        "WD-" +
+        Date.now(),
+
+      userId:
+        String(ctx.from.id),
+
+      username:
+        ctx.from.username || "",
+
+      name:
+        ctx.from.first_name || "",
+
+      amount:
+        amount,
+
+      method:
+        method,
+
+      account:
+        account,
+
+      status:
+        "PENDING",
+
+      createdAt:
+        new Date().toISOString()
+
+    };
+
+    db.withdrawals.push(
+      withdrawal
+    );
+
+    user.balance -=
+      amount;
+
+    user.withdrawStep =
+      null;
+
+    user.withdrawAmount =
+      null;
+
+    user.withdrawMethod =
+      null;
+
+    saveDB();
+
+    // ==============================
+    // NOTIFIKASI ADMIN
+    // ==============================
+
+    try {
+
+      await bot.telegram.sendMessage(
+
+        config.ADMIN_CHAT_ID,
+
+        "🔔 PENGAJUAN WD BARU\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+        "🆔 ID WD: " +
+        withdrawal.id +
+        "\n" +
+
+        "👤 User ID: " +
+        withdrawal.userId +
+        "\n" +
+
+        "👤 Nama: " +
+        withdrawal.name +
+        "\n" +
+
+        "🔗 Username: @" +
+        (withdrawal.username || "-") +
+        "\n\n" +
+
+        "💰 Jumlah: Rp " +
+        amount.toLocaleString("id-ID") +
+        "\n" +
+
+        "💳 Metode: " +
+        method +
+        "\n" +
+
+        "📱 Rekening/E-Wallet: " +
+        account +
+        "\n\n" +
+
+        "⏳ Status: PENDING\n\n" +
+
+        "Silakan proses pembayaran secara manual."
+
+      );
+
+    } catch (error) {
+
+      console.log(
+        "Gagal mengirim notifikasi WD:",
+        error.message
+      );
+
+    }
+
+    return ctx.reply(
+
+      "✅ PENGAJUAN WD BERHASIL\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "🆔 ID WD: " +
+      withdrawal.id +
+      "\n" +
+
+      "💰 Jumlah: Rp " +
+      amount.toLocaleString("id-ID") +
+      "\n" +
+
+      "💳 Metode: " +
+      method +
+      "\n\n" +
+
+      "⏳ Status: PENDING\n\n" +
+
+      "Pengajuan sudah dikirim ke admin.\n" +
+      "Pembayaran akan diproses oleh admin."
+
+    );
+  }
+
+});
 
 // ================================
 // RIWAYAT WD
