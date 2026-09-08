@@ -8,18 +8,20 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const DB_FILE = "./database.json";
 
+// ================================
+// DATABASE
+// ================================
+
 let db = {
   users: {},
   withdrawals: []
 };
 
-// ================================
-// DATABASE
-// ================================
-
 if (fs.existsSync(DB_FILE)) {
   try {
-    db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    db = JSON.parse(
+      fs.readFileSync(DB_FILE, "utf8")
+    );
   } catch (error) {
     console.log("Database tidak bisa dibaca.");
   }
@@ -31,6 +33,10 @@ function saveDB() {
     JSON.stringify(db, null, 2)
   );
 }
+
+// ================================
+// USER
+// ================================
 
 function getUser(userId) {
   const id = String(userId);
@@ -55,10 +61,11 @@ function getUser(userId) {
 
 async function isMember(userId) {
   try {
-    const member = await bot.telegram.getChatMember(
-      config.CHANNEL,
-      userId
-    );
+    const member =
+      await bot.telegram.getChatMember(
+        config.CHANNEL,
+        userId
+      );
 
     return [
       "creator",
@@ -77,7 +84,7 @@ async function isMember(userId) {
 }
 
 // ================================
-// HALAMAN JOIN
+// JOIN CHANNEL
 // ================================
 
 async function showJoin(ctx) {
@@ -85,12 +92,12 @@ async function showJoin(ctx) {
     "🔐 AKSES TERBATAS\n" +
     "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-    "│ 📢 Silakan bergabung ke channel resmi\n" +
-    "│ terlebih dahulu untuk menggunakan bot.\n\n" +
+    "📢 Silakan bergabung ke channel resmi\n" +
+    "terlebih dahulu untuk menggunakan bot.\n\n" +
 
-    "│ Setelah bergabung, tekan tombol\n" +
-    "│ Saya Sudah Bergabung.",
-    
+    "Setelah bergabung, tekan tombol\n" +
+    "✅ Saya Sudah Bergabung.",
+
     Markup.inlineKeyboard([
       [
         Markup.button.url(
@@ -114,17 +121,15 @@ async function showJoin(ctx) {
 
 async function dashboard(ctx) {
 
-  const member = await isMember(
-    ctx.from.id
-  );
+  const member =
+    await isMember(ctx.from.id);
 
   if (!member) {
     return showJoin(ctx);
   }
 
-  const user = getUser(
-    ctx.from.id
-  );
+  const user =
+    getUser(ctx.from.id);
 
   const text =
     "🎉 WELCOME TO CUAN REWARD BOT\n" +
@@ -134,32 +139,37 @@ async function dashboard(ctx) {
     "penghasilan tambahan dengan mudah dan transparan.\n\n" +
 
     "📊 STATISTIK AKUN ANDA\n" +
-    "│ 👤 ID User: " +
+    "│\n" +
+    "├ 👤 ID User: " +
     user.id +
     "\n" +
 
-    "│ 💰 Saldo: Rp " +
+    "├ 💰 Saldo: Rp " +
     user.balance.toLocaleString("id-ID") +
     "\n" +
 
-    "│ 👥 Referral: " +
+    "└ 👥 Referral: " +
     user.referrals +
     " Orang\n\n" +
 
     "ℹ️ INFORMASI SISTEM\n" +
-    "│ 🎁 Bonus Referral: Rp " +
+    "│\n" +
+
+    "├ 🎁 Bonus Referral: Rp " +
     config.REFERRAL_BONUS.toLocaleString("id-ID") +
     " / User\n" +
 
-    "│ 💳 Minimal WD: Rp " +
+    "├ 💳 Minimal WD: Rp " +
     config.MIN_WITHDRAW.toLocaleString("id-ID") +
     "\n" +
 
-    "│ 🕐 Proses WD: Manual oleh admin\n" +
+    "├ ⏱ Proses WD: 1-5 Menit (Otomatis)\n" +
 
-    "│ 👨‍💼 Admin: @" +
+    "└ 👨‍💼 Admin: @" +
     config.ADMIN_USERNAME +
     "\n\n" +
+
+    "━━━━━━━━━━━━━━━━━━━━\n" +
 
     "💡 Klik menu 💰 Hasilkan Uang di bawah\n" +
     "untuk membagikan link referral kamu dan\n" +
@@ -209,24 +219,22 @@ async function dashboard(ctx) {
 
 bot.start(async (ctx) => {
 
-  const member = await isMember(
-    ctx.from.id
-  );
+  const member =
+    await isMember(ctx.from.id);
 
   if (!member) {
     return showJoin(ctx);
   }
 
-  const user = getUser(
-    ctx.from.id
-  );
+  const user =
+    getUser(ctx.from.id);
 
   const startPayload =
     ctx.startPayload || "";
 
-  // ============================
-  // PROSES REFERRAL
-  // ============================
+  // ==============================
+  // REFERRAL
+  // ==============================
 
   if (
     startPayload &&
@@ -242,48 +250,47 @@ bot.start(async (ctx) => {
 
     if (referrer) {
 
-      // Tandai user sudah menggunakan referral
       user.referredBy =
         referrerId;
 
-      // Tambahkan referral
       referrer.referrals += 1;
 
-      // Tambahkan bonus
       referrer.balance +=
         config.REFERRAL_BONUS;
 
       saveDB();
 
-      // ==========================
+      // ============================
       // NOTIFIKASI PENGUNDANG
-      // ==========================
+      // ============================
 
       try {
 
         await bot.telegram.sendMessage(
+
           referrerId,
 
           "🎉 REFERRAL BERHASIL!\n" +
           "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-          "│ 👤 Teman baru berhasil bergabung\n" +
-          "│ melalui link referral kamu.\n\n" +
+          "👤 Teman baru berhasil bergabung\n" +
+          "melalui link referral kamu.\n\n" +
 
-          "│ 🎁 Bonus Referral: Rp " +
+          "🎁 Bonus Referral: Rp " +
           config.REFERRAL_BONUS.toLocaleString("id-ID") +
-          "\n" +
+          "\n\n" +
 
-          "│ 💰 Saldo sekarang: Rp " +
+          "💰 Saldo sekarang: Rp " +
           referrer.balance.toLocaleString("id-ID") +
           "\n" +
 
-          "│ 👥 Total Referral: " +
+          "👥 Total Referral: " +
           referrer.referrals +
           " Orang\n\n" +
 
           "💡 Ajak lebih banyak teman untuk\n" +
           "mendapatkan bonus referral."
+
         );
 
       } catch (error) {
@@ -295,19 +302,15 @@ bot.start(async (ctx) => {
 
       }
 
-      // ==========================
-      // PESAN USER BARU
-      // ==========================
-
       await ctx.reply(
 
         "✅ PENDAFTARAN BERHASIL!\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-        "│ 👤 Kamu berhasil bergabung\n" +
-        "│ melalui link referral.\n\n" +
+        "👤 Kamu berhasil bergabung\n" +
+        "melalui link referral.\n\n" +
 
-        "│ 🎁 Referral berhasil tercatat.\n\n" +
+        "🎁 Referral berhasil tercatat.\n\n" +
 
         "🏠 Silakan gunakan menu di bawah."
 
@@ -334,11 +337,14 @@ bot.action(
     if (!member) {
 
       return ctx.reply(
-        "❌ BELUM TERDETEKSI\n\n" +
+
+        "❌ BELUM TERDETEKSI\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
         "Silakan bergabung ke channel resmi\n" +
         "kemudian tekan tombol ini lagi."
-      );
 
+      );
     }
 
     return dashboard(ctx);
@@ -346,7 +352,7 @@ bot.action(
 );
 
 // ================================
-// CEK MEMBER UNTUK TOMBOL
+// PROTEKSI TOMBOL
 // ================================
 
 bot.use(
@@ -371,7 +377,7 @@ bot.use(
 );
 
 // ================================
-// HASILKAN UANG
+// HASILKAN UANG / REFERRAL
 // ================================
 
 bot.action(
@@ -400,13 +406,15 @@ bot.action(
         "Yuk daftar melalui link referral saya!"
       );
 
+    // FOTO KE-2
     const text =
-
       "💸 PROGRAM REFERRAL CUAN REWARD\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-      "Bagikan link referral kamu kepada\n" +
-      "teman untuk mendapatkan bonus referral.\n\n" +
+      "Bagikan link referral unik Anda kepada\n" +
+      "teman atau ke media sosial untuk\n" +
+      "mendapatkan penghasilan tambahan secara\n" +
+      "instan!\n\n" +
 
       "🎁 Bonus Referral: Rp " +
       config.REFERRAL_BONUS.toLocaleString("id-ID") +
@@ -416,10 +424,12 @@ bot.action(
       referralLink +
       "\n\n" +
 
-      "💡 Setiap referral yang memenuhi ketentuan\n" +
-      "akan tercatat ke akun kamu.\n\n" +
+      "💡 Semakin banyak teman yang bergabung\n" +
+      "menggunakan link Anda, semakin besar\n" +
+      "saldo yang bisa Anda tarik!\n\n" +
 
-      "👇 Klik tombol di bawah untuk membagikan.";
+      "👇 Klik tombol Bagikan Link Referral di\n" +
+      "bawah untuk membagikan link Anda.";
 
     return ctx.reply(
 
@@ -447,7 +457,7 @@ bot.action(
 );
 
 // ================================
-// KEMBALI DASHBOARD
+// DASHBOARD BUTTON
 // ================================
 
 bot.action(
@@ -529,7 +539,7 @@ bot.action(
 );
 
 // ================================
-// RIWAYAT WITHDRAW
+// RIWAYAT WD
 // ================================
 
 bot.action(
@@ -544,7 +554,8 @@ bot.action(
     const history =
       db.withdrawals.filter(
         item =>
-          String(item.userId) === userId
+          String(item.userId) ===
+          userId
       );
 
     if (history.length === 0) {
@@ -567,7 +578,6 @@ bot.action(
       (item, index) => {
 
         text +=
-
           "│ " +
           (index + 1) +
           ". Rp " +
@@ -599,11 +609,25 @@ bot.catch((error) => {
 });
 
 // ================================
-// JALANKAN BOT
+// START BOT
 // ================================
 
 bot.launch();
 
 console.log(
   "✅ CUAN REWARD BOT AKTIF"
+);
+
+// ================================
+// STOP GRACEFULLY
+// ================================
+
+process.once(
+  "SIGINT",
+  () => bot.stop("SIGINT")
+);
+
+process.once(
+  "SIGTERM",
+  () => bot.stop("SIGTERM")
 );
