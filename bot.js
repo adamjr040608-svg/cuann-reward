@@ -129,10 +129,10 @@ async function dashboard(ctx, edit = false) {
     `🎁 Bonus Referral: *Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User*\n` +
     `💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
     "⏱ Proses WD: 1-5 Menit (Otomatis)\n" +
-    `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;
-     "💡 Klik menu *💰 Hasilkan Uang* di bawah
+    `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;\n\n💡 Klik
+  menu *💰 Hasilkan Uang* di bawah
   untuk membagikan link referral kamu
-  dan mulai menghasilkan!\n\n" +
+  dan mulai menghasilkan!`;
 
   const keyboard =
     Markup.inlineKeyboard([
