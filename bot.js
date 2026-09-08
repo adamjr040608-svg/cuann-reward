@@ -130,9 +130,9 @@ async function dashboard(ctx, edit = false) {
     `💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
     "⏱ Proses WD: 1-5 Menit (Otomatis)\n" +
     `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;
-     💡 Klik menu *💰 Hasilkan Uang* di bawah
+     "💡 Klik menu *💰 Hasilkan Uang* di bawah
   untuk membagikan link referral kamu
-  dan mulai menghasilkan!
+  dan mulai menghasilkan!"
 
   const keyboard =
     Markup.inlineKeyboard([
