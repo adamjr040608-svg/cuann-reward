@@ -107,21 +107,28 @@ async function dashboard(ctx) {
   const user = getUser(ctx.from.id);
 
   const text =
-    "🎉 <b>WELCOME TO CUAN REWARD BOT</b>\n\n" +
-    "Platform referral dengan sistem saldo yang transparan.\n\n" +
+  "🎉 *WELCOME TO CUAN REWARD BOT*\n" +
+  "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-    "📊 <b>STATISTIK AKUN ANDA</b>\n\n" +
-    `🆔 ID User: <code>${user.id}</code>\n` +
-    `💰 Saldo: <b>Rp ${user.balance.toLocaleString("id-ID")}</b>\n` +
-    `👥 Referral: <b>${user.referrals} Orang</b>\n\n` +
+  "Platform terpercaya untuk mendapatkan penghasilan harian dengan cepat dan aman..\n\n" +
 
-    "ℹ️ <b>INFORMASI SISTEM</b>\n\n" +
-    `🎁 Bonus Referral: <b>Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User</b>\n` +
-    `💳 Minimal WD: <b>Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}</b>\n` +
-    "⏱️ Proses WD: <b>Manual oleh admin</b>\n" +
-    `👨‍💼 Admin: <b>@${config.ADMIN_USERNAME}</b>\n\n` +
+  "📊 *STATISTIK AKUN ANDA*\n" +
+  "│\n" +
+  `├ 🆔 ID User: \`${user.id}\`\n` +
+  `├ 💰 Saldo: *Rp ${user.balance.toLocaleString("id-ID")}*\n` +
+  `└ 👥 Referral: *${user.referrals} Orang*\n\n` +
 
-    "💡 Klik menu <b>💰 Hasilkan Uang</b> di bawah untuk membagikan link referral kamu dan mulai menghasilkan!";
+  "ℹ️ *INFORMASI SISTEM*\n" +
+  "│\n" +
+  `├ 🎁 Bonus Referral: *Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User*\n` +
+  `├ 💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
+  "├ ⏱️ Proses WD: *Manual oleh admin*\n" +
+  `└ 👨‍💼 Admin: @${config.ADMIN_USERNAME}\n\n` +
+
+  "━━━━━━━━━━━━━━━━━━━━\n" +
+  "💡 Klik menu 💰 *Hasilkan Uang* di bawah\n" +
+  "untuk membagikan link referral kamu dan\n" +
+  "mulai menghasilkan!";
 
   const keyboard = Markup.inlineKeyboard([
     [
