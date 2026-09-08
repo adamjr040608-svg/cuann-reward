@@ -56,77 +56,10 @@ function getUser(userId) {
 }
 
 // ================================
-// CEK MEMBER CHANNEL
-// ================================
-
-async function isMember(userId) {
-  try {
-    const member =
-      await bot.telegram.getChatMember(
-        config.CHANNEL,
-        userId
-      );
-
-    return [
-      "creator",
-      "administrator",
-      "member"
-    ].includes(member.status);
-
-  } catch (error) {
-    console.log(
-      "Cek member gagal:",
-      error.message
-    );
-
-    return false;
-  }
-}
-
-// ================================
-// JOIN CHANNEL
-// ================================
-
-async function showJoin(ctx) {
-  return ctx.reply(
-    "🔐 AKSES TERBATAS\n" +
-    "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-    "📢 Silakan bergabung ke channel resmi\n" +
-    "terlebih dahulu untuk menggunakan bot.\n\n" +
-
-    "Setelah bergabung, tekan tombol\n" +
-    "✅ Saya Sudah Bergabung.",
-
-    Markup.inlineKeyboard([
-      [
-        Markup.button.url(
-          "📢 Join Channel",
-          config.CHANNEL_LINK
-        )
-      ],
-      [
-        Markup.button.callback(
-          "✅ Saya Sudah Bergabung",
-          "CHECK_JOIN"
-        )
-      ]
-    ])
-  );
-}
-
-// ================================
 // DASHBOARD
 // ================================
 
 async function dashboard(ctx) {
-
-  const member =
-    await isMember(ctx.from.id);
-
-  if (!member) {
-    return showJoin(ctx);
-  }
 
   const user =
     getUser(ctx.from.id);
@@ -163,7 +96,7 @@ async function dashboard(ctx) {
     config.MIN_WITHDRAW.toLocaleString("id-ID") +
     "\n" +
 
-    "├ ⏱ Proses WD: 1-5 Menit (Otomatis)\n" +
+    "├ ⏱ Proses WD: Manual oleh admin\n" +
 
     "└ 👨‍💼 Admin: @" +
     config.ADMIN_USERNAME +
@@ -214,17 +147,10 @@ async function dashboard(ctx) {
 }
 
 // ================================
-// START
+// START + REFERRAL
 // ================================
 
 bot.start(async (ctx) => {
-
-  const member =
-    await isMember(ctx.from.id);
-
-  if (!member) {
-    return showJoin(ctx);
-  }
 
   const user =
     getUser(ctx.from.id);
@@ -250,19 +176,22 @@ bot.start(async (ctx) => {
 
     if (referrer) {
 
+      // Tandai agar tidak dihitung dua kali
       user.referredBy =
         referrerId;
 
+      // Tambah jumlah referral
       referrer.referrals += 1;
 
+      // Tambah bonus
       referrer.balance +=
         config.REFERRAL_BONUS;
 
       saveDB();
 
-      // ============================
+      // ==========================
       // NOTIFIKASI PENGUNDANG
-      // ============================
+      // ==========================
 
       try {
 
@@ -288,15 +217,14 @@ bot.start(async (ctx) => {
           referrer.referrals +
           " Orang\n\n" +
 
-          "💡 Ajak lebih banyak teman untuk\n" +
-          "mendapatkan bonus referral."
+          "✅ Bonus sudah masuk ke saldo kamu."
 
         );
 
       } catch (error) {
 
         console.log(
-          "Gagal mengirim notifikasi:",
+          "Gagal mengirim notifikasi referral:",
           error.message
         );
 
@@ -304,11 +232,11 @@ bot.start(async (ctx) => {
 
       await ctx.reply(
 
-        "✅ PENDAFTARAN BERHASIL!\n" +
+        "🎉 SELAMAT DATANG DI CUAN REWARD!\n" +
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-        "👤 Kamu berhasil bergabung\n" +
-        "melalui link referral.\n\n" +
+        "✅ Kamu berhasil bergabung melalui\n" +
+        "link referral.\n\n" +
 
         "🎁 Referral berhasil tercatat.\n\n" +
 
@@ -316,65 +244,26 @@ bot.start(async (ctx) => {
 
       );
     }
+
+  } else {
+
+    await ctx.reply(
+
+      "🎉 SELAMAT DATANG DI CUAN REWARD!\n" +
+      "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+      "✅ Akun kamu berhasil terdaftar.\n\n" +
+
+      "💡 Gunakan link referral kamu\n" +
+      "untuk mengundang teman.\n\n" +
+
+      "🏠 Silakan gunakan menu di bawah."
+
+    );
   }
 
   return dashboard(ctx);
 });
-
-// ================================
-// CEK JOIN
-// ================================
-
-bot.action(
-  "CHECK_JOIN",
-  async (ctx) => {
-
-    await ctx.answerCbQuery();
-
-    const member =
-      await isMember(ctx.from.id);
-
-    if (!member) {
-
-      return ctx.reply(
-
-        "❌ BELUM TERDETEKSI\n" +
-        "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-        "Silakan bergabung ke channel resmi\n" +
-        "kemudian tekan tombol ini lagi."
-
-      );
-    }
-
-    return dashboard(ctx);
-  }
-);
-
-// ================================
-// PROTEKSI TOMBOL
-// ================================
-
-bot.use(
-  async (ctx, next) => {
-
-    if (
-      ctx.callbackQuery &&
-      ctx.callbackQuery.data !==
-      "CHECK_JOIN"
-    ) {
-
-      const member =
-        await isMember(ctx.from.id);
-
-      if (!member) {
-        return showJoin(ctx);
-      }
-    }
-
-    return next();
-  }
-);
 
 // ================================
 // HASILKAN UANG / REFERRAL
@@ -406,9 +295,8 @@ bot.action(
         "Yuk daftar melalui link referral saya!"
       );
 
-    // FOTO KE-2
     const text =
-      "💸 PROGRAM REFERRAL CUAN REWARD\n" +
+      "💸 PROGRAM REFERRAL GLOBAL EARNING\n" +
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
       "Bagikan link referral unik Anda kepada\n" +
