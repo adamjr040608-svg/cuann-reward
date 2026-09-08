@@ -117,7 +117,7 @@ async function dashboard(ctx, edit = false) {
     getUser(ctx.from.id);
 
   const text =
-    "🎉 *WELCOME TO GLOBAL EARNING BOT*\n\n" +
+    "🎉 *WELCOME TO CUAN REWARD BOT*\n\n" +
     "Platform referral dengan sistem saldo yang transparan.\n\n" +
 
     "📊 *STATISTIK AKUN ANDA*\n\n" +
@@ -130,6 +130,9 @@ async function dashboard(ctx, edit = false) {
     `💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
     "⏱ Proses WD: Manual oleh admin\n" +
     `👨‍💻 Admin: @${config.ADMIN_USERNAME}`;
+     💡 Klik menu *💰 Hasilkan Uang* di bawah
+  untuk membagikan link referral kamu
+  dan mulai menghasilkan!
 
   const keyboard =
     Markup.inlineKeyboard([
