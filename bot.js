@@ -107,26 +107,26 @@ async function dashboard(ctx) {
   const user = getUser(ctx.from.id);
 
   const text =
-  "🎉 *WELCOME TO CUAN REWARD BOT*\n" +
+  "🎉 WELCOME TO CUAN REWARD BOT\n" +
   "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
-  "Platform terpercaya untuk mendapatkan penghasilan harian dengan cepat dan aman..\n\n" +
+  "Platform terpercaya untuk mendapatkan penghasilan harian dengan cepat dan aman.\n\n" +
 
-  "📊 *STATISTIK AKUN ANDA*\n" +
+  "📊 STATISTIK AKUN ANDA\n" +
   "│\n" +
-  `├ 🆔 ID User: \`${user.id}\`\n` +
-  `├ 💰 Saldo: *Rp ${user.balance.toLocaleString("id-ID")}*\n` +
-  `└ 👥 Referral: *${user.referrals} Orang*\n\n` +
+  `├ 🆔 ID User: ${user.id}\n` +
+  `├ 💰 Saldo: Rp ${user.balance.toLocaleString("id-ID")}\n` +
+  `└ 👥 Referral: ${user.referrals} Orang\n\n` +
 
-  "ℹ️ *INFORMASI SISTEM*\n" +
+  "ℹ️ INFORMASI SISTEM\n" +
   "│\n" +
-  `├ 🎁 Bonus Referral: *Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User*\n` +
-  `├ 💳 Minimal WD: *Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}*\n` +
-  "├ ⏱️ Proses WD: *Manual oleh admin*\n" +
+  `├ 🎁 Bonus Referral: Rp ${config.REFERRAL_BONUS.toLocaleString("id-ID")} / User\n` +
+  `├ 💳 Minimal WD: Rp ${config.MIN_WITHDRAW.toLocaleString("id-ID")}\n` +
+  "├ ⏱️ Proses WD: Manual oleh admin\n" +
   `└ 👨‍💼 Admin: @${config.ADMIN_USERNAME}\n\n` +
 
   "━━━━━━━━━━━━━━━━━━━━\n" +
-  "💡 Klik menu 💰 *Hasilkan Uang* di bawah\n" +
+  "💡 Klik menu 💰 Hasilkan Uang di bawah\n" +
   "untuk membagikan link referral kamu dan\n" +
   "mulai menghasilkan!";
 
