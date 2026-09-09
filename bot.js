@@ -3,7 +3,12 @@ require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 const fs = require("fs");
 const config = require("./config");
+const { createClient } = require("@supabase/supabase-js");
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const DB_FILE = "./database.json";
