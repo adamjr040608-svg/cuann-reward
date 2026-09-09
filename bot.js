@@ -5,17 +5,22 @@ const fs = require("fs");
 const config = require("./config");
 const { createClient } = require("@supabase/supabase-js");
 
+// ==========================================
+// SUPABASE
+// ==========================================
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-const DB_FILE = "./database.json";
+// ==========================================
+// DATABASE LOCAL UNTUK CACHE / DATA WD
+// ==========================================
 
-// ==========================================
-// DATABASE
-// ==========================================
+const DB_FILE = "./database.json";
 
 let db = {
   users: {},
@@ -35,93 +40,157 @@ if (fs.existsSync(DB_FILE)) {
     if (!db.withdrawals) {
       db.withdrawals = [];
     }
-
   } catch (error) {
-    console.log("Database tidak bisa dibaca.");
-  }
-}
-
-function saveDB() {
-  fs.writeFileSync(
-    DB_FILE,
-    JSON.stringify(db, null, 2)
-  );
-
-  Promise.all(
-    Object.values(db.users).map(user =>
-      saveUserToSupabase(user)
-    )
-  ).catch(error => {
-    console.error("Gagal sinkron ke Supabase:", error.message);
-  });
-}
-
-async function saveUserToSupabase(user) {
-  const { error } = await supabase
-    .from("users")
-    .upsert({
-      id: String(user.id),
-      balance: Number(user.balance || 0),
-      referrals: Number(user.referrals || 0),
-      referred_by: user.referredBy ? String(user.referredBy) : null
-    });
-
-  if (error) {
-    console.error("Supabase save error:", error.message);
+    console.log("Database lokal tidak bisa dibaca.");
   }
 }
 
 // ==========================================
-// USER
+// SIMPAN USER KE SUPABASE
 // ==========================================
 
-function getUser(userId) {
+async function saveUser(user) {
+  try {
+    const { error } = await supabase
+      .from("users")
+      .upsert(
+        {
+          id: String(user.id),
+          balance: Number(user.balance || 0),
+          referrals: Number(user.referrals || 0),
+          referred_by: user.referredBy
+            ? String(user.referredBy)
+            : null
+        },
+        {
+          onConflict: "id"
+        }
+      );
 
+    if (error) {
+      console.error(
+        "Supabase save error:",
+        error.message
+      );
+
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "Supabase connection error:",
+      error.message
+    );
+
+    return false;
+  }
+}
+
+// ==========================================
+// SIMPAN DATABASE LOCAL
+// ==========================================
+
+function saveLocalDB() {
+  try {
+    fs.writeFileSync(
+      DB_FILE,
+      JSON.stringify(db, null, 2)
+    );
+  } catch (error) {
+    console.error(
+      "Gagal menyimpan database lokal:",
+      error.message
+    );
+  }
+}
+
+// ==========================================
+// AMBIL USER DARI SUPABASE
+// ==========================================
+
+async function getUser(userId) {
   const id = String(userId);
 
-  if (!db.users[id]) {
-
-    db.users[id] = {
-
-      id: id,
-
-      balance:
-        config.START_BALANCE,
-
-      referrals:
-        0,
-
-      referredBy:
-        null,
-
-      withdrawStep:
-        null,
-
-      withdrawAmount:
-        null,
-
-      withdrawMethod:
-        null,
-
-      withdrawAccount:
-        null
-
-    };
-
-    saveDB();
+  // Jika sudah ada di cache
+  if (db.users[id]) {
+    return db.users[id];
   }
+
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Gagal mengambil user Supabase:",
+        error.message
+      );
+    }
+
+    // User sudah ada di Supabase
+    if (data) {
+      db.users[id] = {
+        id: id,
+        balance: Number(data.balance || 0),
+        referrals: Number(data.referrals || 0),
+        referredBy: data.referred_by || null,
+
+        withdrawStep: null,
+        withdrawAmount: null,
+        withdrawMethod: null,
+        withdrawAccount: null
+      };
+
+      saveLocalDB();
+
+      return db.users[id];
+    }
+  } catch (error) {
+    console.error(
+      "Supabase user error:",
+      error.message
+    );
+  }
+
+  // User baru
+  db.users[id] = {
+    id: id,
+
+    balance: Number(
+      config.START_BALANCE || 0
+    ),
+
+    referrals: 0,
+
+    referredBy: null,
+
+    withdrawStep: null,
+
+    withdrawAmount: null,
+
+    withdrawMethod: null,
+
+    withdrawAccount: null
+  };
+
+  saveLocalDB();
+
+  // LANGSUNG simpan ke Supabase
+  await saveUser(db.users[id]);
 
   return db.users[id];
 }
 
 // ==========================================
-// CEK JOIN SALURAN
+// CEK JOIN CHANNEL
 // ==========================================
 
 async function isMember(ctx) {
-
   try {
-
     const member =
       await ctx.telegram.getChatMember(
         config.CHANNEL,
@@ -193,7 +262,7 @@ async function showJoin(ctx) {
 async function dashboard(ctx) {
 
   const user =
-    getUser(ctx.from.id);
+    await getUser(ctx.from.id);
 
   const text =
 
@@ -211,22 +280,25 @@ async function dashboard(ctx) {
     "\n" +
 
     "├ 💰 Saldo: Rp " +
-    user.balance.toLocaleString("id-ID") +
+    Number(user.balance || 0)
+      .toLocaleString("id-ID") +
     "\n" +
 
     "└ 👥 Referral: " +
-    user.referrals +
+    Number(user.referrals || 0) +
     " Orang\n\n" +
 
     "ℹ️ INFORMASI SISTEM\n" +
     "│\n" +
 
     "├ 🎁 Bonus Referral: Rp " +
-    config.REFERRAL_BONUS.toLocaleString("id-ID") +
+    config.REFERRAL_BONUS
+      .toLocaleString("id-ID") +
     " / User\n" +
 
     "├ 💳 Minimal WD: Rp " +
-    config.MIN_WITHDRAW.toLocaleString("id-ID") +
+    config.MIN_WITHDRAW
+      .toLocaleString("id-ID") +
     "\n" +
 
     "├ ⏱ Proses WD: Manual oleh admin\n" +
@@ -283,59 +355,132 @@ async function dashboard(ctx) {
 
 bot.start(async (ctx) => {
 
-  const user = getUser(ctx.from.id);
-  const ref = ctx.startPayload || "";
+  const user =
+    await getUser(ctx.from.id);
 
-  // PROSES REFERRAL
+  const ref =
+    ctx.startPayload || "";
+
+  // ========================================
+  // REFERRAL
+  // ========================================
+
   if (
     ref &&
     ref !== String(ctx.from.id) &&
-    !user.referredBy &&
-    db.users[ref]
+    !user.referredBy
   ) {
 
-    user.referredBy = ref;
+    // Ambil pemberi referral dari database
+    const { data: inviter } =
+      await supabase
+        .from("users")
+        .select("*")
+        .eq("id", String(ref))
+        .maybeSingle();
 
-    db.users[ref].referrals += 1;
+    if (inviter) {
 
-    db.users[ref].balance +=
-      config.REFERRAL_BONUS;
+      user.referredBy =
+        String(ref);
 
-    saveDB();
+      userReferrals:
+      user.referrals =
+        Number(user.referrals || 0);
 
-    try {
-      await bot.telegram.sendMessage(
-        ref,
-        "🎉 REFERRAL BERHASIL!\n" +
-        "━━━━━━━━━━━━━━━━━━━━\n\n" +
-        "👤 Teman baru masuk melalui link kamu.\n\n" +
-        "🎁 Bonus: Rp " +
-        config.REFERRAL_BONUS.toLocaleString("id-ID") +
-        "\n\n" +
-        "💰 Saldo sekarang: Rp " +
-        db.users[ref].balance.toLocaleString("id-ID") +
-        "\n" +
-        "👥 Referral: " +
-        db.users[ref].referrals +
-        " Orang"
-      );
-    } catch (error) {
-      console.log(
-        "Gagal kirim notifikasi referral:",
-        error.message
-      );
+      // Tambahkan referral ke pemberi
+      const inviterBalance =
+        Number(inviter.balance || 0) +
+        Number(config.REFERRAL_BONUS || 0);
+
+      const inviterReferrals =
+        Number(inviter.referrals || 0) + 1;
+
+      const { error } =
+        await supabase
+          .from("users")
+          .update({
+            balance: inviterBalance,
+            referrals: inviterReferrals
+          })
+          .eq("id", String(ref));
+
+      if (error) {
+
+        console.error(
+          "Gagal menyimpan bonus referral:",
+          error.message
+        );
+
+      } else {
+
+        // Simpan referred_by user baru
+        await saveUser(user);
+
+        // Update cache pemberi referral
+        if (db.users[String(ref)]) {
+
+          db.users[String(ref)].balance =
+            inviterBalance;
+
+          db.users[String(ref)].referrals =
+            inviterReferrals;
+        }
+
+        saveLocalDB();
+
+        // Notifikasi pemberi referral
+        try {
+
+          await bot.telegram.sendMessage(
+
+            String(ref),
+
+            "🎉 REFERRAL BERHASIL!\n" +
+            "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+            "👤 Teman baru masuk melalui link kamu.\n\n" +
+
+            "🎁 Bonus: Rp " +
+            config.REFERRAL_BONUS
+              .toLocaleString("id-ID") +
+            "\n\n" +
+
+            "💰 Saldo sekarang: Rp " +
+            inviterBalance
+              .toLocaleString("id-ID") +
+            "\n" +
+
+            "👥 Referral: " +
+            inviterReferrals +
+            " Orang"
+
+          );
+
+        } catch (error) {
+
+          console.log(
+            "Gagal kirim notifikasi referral:",
+            error.message
+          );
+        }
+      }
     }
   }
 
-  // CEK WAJIB JOIN SETELAH REFERRAL DIPROSES
+  // ========================================
+  // WAJIB JOIN
+  // ========================================
+
   if (!(await isMember(ctx))) {
     return showJoin(ctx);
   }
 
   return dashboard(ctx);
 });
+
 // ==========================================
-// CEK JOIN
+// CHECK JOIN
 // ==========================================
 
 bot.action(
@@ -368,12 +513,11 @@ bot.action(
 );
 
 // ==========================================
-// PROTEKSI SEMUA MENU
+// PROTEKSI MENU
 // ==========================================
 
 bot.use(async (ctx, next) => {
 
-  // Abaikan update tertentu
   if (
     !ctx.from ||
     ctx.updateType === "my_chat_member"
@@ -381,7 +525,6 @@ bot.use(async (ctx, next) => {
     return next();
   }
 
-  // START sudah memiliki pengecekan sendiri
   if (
     ctx.message &&
     ctx.message.text &&
@@ -390,7 +533,6 @@ bot.use(async (ctx, next) => {
     return next();
   }
 
-  // CHECK JOIN
   if (
     ctx.callbackQuery &&
     ctx.callbackQuery.data ===
@@ -403,7 +545,6 @@ bot.use(async (ctx, next) => {
     await isMember(ctx);
 
   if (!joined) {
-
     return showJoin(ctx);
   }
 
@@ -435,28 +576,23 @@ bot.action(
     await ctx.answerCbQuery();
 
     const user =
-      getUser(ctx.from.id);
+      await getUser(ctx.from.id);
 
     const me =
       await bot.telegram.getMe();
 
     const referralLink =
-
       "https://t.me/" +
       me.username +
       "?start=" +
       user.id;
 
     const shareLink =
-
       "https://t.me/share/url?url=" +
-
       encodeURIComponent(
         referralLink
       ) +
-
       "&text=" +
-
       encodeURIComponent(
         "Yuk daftar melalui link referral saya!"
       );
@@ -472,16 +608,12 @@ bot.action(
       "instan!\n\n" +
 
       "🎁 Bonus Referral: Rp " +
-
       config.REFERRAL_BONUS
         .toLocaleString("id-ID") +
-
       " / Orang\n\n" +
 
       "🔗 Link Referral Anda:\n" +
-
       referralLink +
-
       "\n\n" +
 
       "💡 Semakin banyak teman yang bergabung\n" +
@@ -524,11 +656,11 @@ bot.action(
     await ctx.answerCbQuery();
 
     const user =
-      getUser(ctx.from.id);
+      await getUser(ctx.from.id);
 
     if (
-      user.balance <
-      config.MIN_WITHDRAW
+      Number(user.balance) <
+      Number(config.MIN_WITHDRAW)
     ) {
 
       return ctx.reply(
@@ -537,17 +669,13 @@ bot.action(
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
         "💰 Saldo Anda: Rp " +
-
-        user.balance
+        Number(user.balance)
           .toLocaleString("id-ID") +
-
         "\n" +
 
         "💳 Minimal WD: Rp " +
-
         config.MIN_WITHDRAW
           .toLocaleString("id-ID") +
-
         "\n\n" +
 
         "Silakan kumpulkan saldo tambahan\n" +
@@ -568,7 +696,8 @@ bot.action(
     user.withdrawAccount =
       null;
 
-    saveDB();
+    saveLocalDB();
+    await saveUser(user);
 
     return ctx.reply(
 
@@ -576,10 +705,8 @@ bot.action(
       "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
       "💰 Saldo Anda: Rp " +
-
-      user.balance
+      Number(user.balance)
         .toLocaleString("id-ID") +
-
       "\n\n" +
 
       "Ketik jumlah WD yang ingin diajukan.\n\n" +
@@ -592,7 +719,7 @@ bot.action(
 );
 
 // ==========================================
-// INPUT WD
+// INPUT TEXT WD
 // ==========================================
 
 bot.on(
@@ -600,7 +727,7 @@ bot.on(
   async (ctx, next) => {
 
     const user =
-      getUser(ctx.from.id);
+      await getUser(ctx.from.id);
 
     if (!user.withdrawStep) {
       return next();
@@ -610,7 +737,7 @@ bot.on(
       ctx.message.text.trim();
 
     // ======================================
-    // JUMLAH
+    // JUMLAH WD
     // ======================================
 
     if (
@@ -640,7 +767,6 @@ bot.on(
           "❌ JUMLAH TERLALU KECIL\n\n" +
 
           "Minimal WD: Rp " +
-
           config.MIN_WITHDRAW
             .toLocaleString("id-ID")
 
@@ -649,7 +775,7 @@ bot.on(
 
       if (
         amount >
-        user.balance
+        Number(user.balance)
       ) {
 
         return ctx.reply(
@@ -657,8 +783,7 @@ bot.on(
           "❌ SALDO TIDAK CUKUP\n\n" +
 
           "Saldo Anda: Rp " +
-
-          user.balance
+          Number(user.balance)
             .toLocaleString("id-ID")
 
         );
@@ -670,7 +795,8 @@ bot.on(
       user.withdrawStep =
         "method";
 
-      saveDB();
+      saveLocalDB();
+      await saveUser(user);
 
       return ctx.reply(
 
@@ -678,10 +804,8 @@ bot.on(
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
         "💰 Jumlah WD: Rp " +
-
         amount
           .toLocaleString("id-ID") +
-
         "\n\n" +
 
         "Pilih metode pencairan:",
@@ -733,7 +857,8 @@ bot.on(
       user.withdrawStep =
         "confirm";
 
-      saveDB();
+      saveLocalDB();
+      await saveUser(user);
 
       return ctx.reply(
 
@@ -741,10 +866,8 @@ bot.on(
         "━━━━━━━━━━━━━━━━━━━━\n\n" +
 
         "💰 Jumlah: Rp " +
-
-        user.withdrawAmount
+        Number(user.withdrawAmount)
           .toLocaleString("id-ID") +
-
         "\n" +
 
         "💳 Metode: " +
@@ -782,6 +905,56 @@ bot.on(
 );
 
 // ==========================================
+// PILIH METODE WD
+// ==========================================
+
+async function chooseWithdrawMethod(
+  ctx,
+  method
+) {
+
+  await ctx.answerCbQuery();
+
+  const user =
+    await getUser(ctx.from.id);
+
+  user.withdrawMethod =
+    method;
+
+  user.withdrawStep =
+    "account";
+
+  saveLocalDB();
+  await saveUser(user);
+
+  let message =
+    "💳 WD " +
+    method +
+    "\n" +
+    "━━━━━━━━━━━━━━━━━━━━\n\n" +
+
+    "💰 Jumlah: Rp " +
+    Number(user.withdrawAmount)
+      .toLocaleString("id-ID") +
+    "\n\n";
+
+  if (method === "BANK") {
+
+    message +=
+      "Masukkan nomor rekening bank kamu.";
+
+  } else {
+
+    message +=
+      "Masukkan nomor " +
+      method +
+      " kamu.";
+  }
+
+  return ctx.reply(message);
+}
+
+// ==========================================
 // DANA
 // ==========================================
 
@@ -789,33 +962,9 @@ bot.action(
   "WD_DANA",
   async (ctx) => {
 
-    await ctx.answerCbQuery();
-
-    const user =
-      getUser(ctx.from.id);
-
-    user.withdrawMethod =
-      "DANA";
-
-    user.withdrawStep =
-      "account";
-
-    saveDB();
-
-    return ctx.reply(
-
-      "💙 WD DANA\n" +
-      "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-      "💰 Jumlah: Rp " +
-
-      user.withdrawAmount
-        .toLocaleString("id-ID") +
-
-      "\n\n" +
-
-      "Masukkan nomor DANA kamu."
-
+    return chooseWithdrawMethod(
+      ctx,
+      "DANA"
     );
   }
 );
@@ -828,33 +977,9 @@ bot.action(
   "WD_OVO",
   async (ctx) => {
 
-    await ctx.answerCbQuery();
-
-    const user =
-      getUser(ctx.from.id);
-
-    user.withdrawMethod =
-      "OVO";
-
-    user.withdrawStep =
-      "account";
-
-    saveDB();
-
-    return ctx.reply(
-
-      "🟣 WD OVO\n" +
-      "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-      "💰 Jumlah: Rp " +
-
-      user.withdrawAmount
-        .toLocaleString("id-ID") +
-
-      "\n\n" +
-
-      "Masukkan nomor OVO kamu."
-
+    return chooseWithdrawMethod(
+      ctx,
+      "OVO"
     );
   }
 );
@@ -867,33 +992,9 @@ bot.action(
   "WD_GOPAY",
   async (ctx) => {
 
-    await ctx.answerCbQuery();
-
-    const user =
-      getUser(ctx.from.id);
-
-    user.withdrawMethod =
-      "GoPay";
-
-    user.withdrawStep =
-      "account";
-
-    saveDB();
-
-    return ctx.reply(
-
-      "🟢 WD GOPAY\n" +
-      "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-      "💰 Jumlah: Rp " +
-
-      user.withdrawAmount
-        .toLocaleString("id-ID") +
-
-      "\n\n" +
-
-      "Masukkan nomor GoPay kamu."
-
+    return chooseWithdrawMethod(
+      ctx,
+      "GoPay"
     );
   }
 );
@@ -906,33 +1007,9 @@ bot.action(
   "WD_BANK",
   async (ctx) => {
 
-    await ctx.answerCbQuery();
-
-    const user =
-      getUser(ctx.from.id);
-
-    user.withdrawMethod =
-      "BANK";
-
-    user.withdrawStep =
-      "account";
-
-    saveDB();
-
-    return ctx.reply(
-
-      "🏦 WD BANK\n" +
-      "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-      "💰 Jumlah: Rp " +
-
-      user.withdrawAmount
-        .toLocaleString("id-ID") +
-
-      "\n\n" +
-
-      "Masukkan nomor rekening bank kamu."
-
+    return chooseWithdrawMethod(
+      ctx,
+      "BANK"
     );
   }
 );
@@ -948,7 +1025,7 @@ bot.action(
     await ctx.answerCbQuery();
 
     const user =
-      getUser(ctx.from.id);
+      await getUser(ctx.from.id);
 
     if (
       !user.withdrawAmount ||
@@ -964,6 +1041,7 @@ bot.action(
     const amount =
       Number(user.withdrawAmount);
 
+    // Cek minimum
     if (
       amount <
       config.MIN_WITHDRAW
@@ -974,15 +1052,26 @@ bot.action(
       );
     }
 
+    // Cek saldo terbaru
     if (
       amount >
-      user.balance
+      Number(user.balance)
     ) {
 
       user.withdrawStep =
         null;
 
-      saveDB();
+      user.withdrawAmount =
+        null;
+
+      user.withdrawMethod =
+        null;
+
+      user.withdrawAccount =
+        null;
+
+      saveLocalDB();
+      await saveUser(user);
 
       return ctx.reply(
         "❌ SALDO TIDAK CUKUP."
@@ -990,7 +1079,7 @@ bot.action(
     }
 
     // ======================================
-    // BUAT DATA WITHDRAW
+    // DATA WITHDRAW
     // ======================================
 
     const withdrawal = {
@@ -1022,19 +1111,19 @@ bot.action(
 
       createdAt:
         new Date().toISOString()
-
     };
 
     db.withdrawals.push(
       withdrawal
     );
 
-    // Potong saldo
+    // ======================================
+    // POTONG SALDO
+    // ======================================
 
-    user.balance -=
+    user.balance =
+      Number(user.balance) -
       amount;
-
-    // Reset proses WD
 
     user.withdrawStep =
       null;
@@ -1048,7 +1137,24 @@ bot.action(
     user.withdrawAccount =
       null;
 
-    saveDB();
+    // ======================================
+    // SIMPAN SEBELUM KIRIM PESAN
+    // ======================================
+
+    saveLocalDB();
+
+    const saved =
+      await saveUser(user);
+
+    if (!saved) {
+
+      return ctx.reply(
+
+        "❌ Gagal menyimpan perubahan saldo.\n\n" +
+        "WD tidak diproses. Silakan coba lagi."
+
+      );
+    }
 
     // ======================================
     // NOTIFIKASI ADMIN
@@ -1083,10 +1189,8 @@ bot.action(
         "\n\n" +
 
         "💰 Jumlah: Rp " +
-
         amount
           .toLocaleString("id-ID") +
-
         "\n" +
 
         "💳 Metode: " +
@@ -1109,7 +1213,6 @@ bot.action(
         "Gagal mengirim notifikasi WD:",
         error.message
       );
-
     }
 
     return ctx.reply(
@@ -1122,10 +1225,8 @@ bot.action(
       "\n" +
 
       "💰 Jumlah: Rp " +
-
       amount
         .toLocaleString("id-ID") +
-
       "\n" +
 
       "💳 Metode: " +
@@ -1152,7 +1253,7 @@ bot.action(
     await ctx.answerCbQuery();
 
     const user =
-      getUser(ctx.from.id);
+      await getUser(ctx.from.id);
 
     user.withdrawStep =
       null;
@@ -1166,7 +1267,8 @@ bot.action(
     user.withdrawAccount =
       null;
 
-    saveDB();
+    saveLocalDB();
+    await saveUser(user);
 
     return ctx.reply(
       "❌ PENGAJUAN WD DIBATALKAN."
@@ -1232,12 +1334,11 @@ bot.action(
           "│ Status: " +
           item.status +
           "\n\n";
-
       }
     );
 
-    return ctx.reply(text)
-    }
+    return ctx.reply(text);
+  }
 );
 
 // ==========================================
@@ -1246,7 +1347,7 @@ bot.action(
 
 bot.catch((error) => {
 
-  console.log(
+  console.error(
     "BOT ERROR:",
     error
   );
@@ -1254,38 +1355,99 @@ bot.catch((error) => {
 });
 
 // ==========================================
+// LOAD DATA SUPABASE
+// ==========================================
+
+async function loadUsersFromSupabase() {
+
+  try {
+
+    const {
+      data,
+      error
+    } = await supabase
+      .from("users")
+      .select("*");
+
+    if (error) {
+
+      console.error(
+        "Gagal mengambil data Supabase:",
+        error.message
+      );
+
+      return;
+    }
+
+    if (!data) {
+      return;
+    }
+
+    for (const user of data) {
+
+      const id =
+        String(user.id);
+
+      db.users[id] = {
+
+        id: id,
+
+        balance:
+          Number(user.balance || 0),
+
+        referrals:
+          Number(user.referrals || 0),
+
+        referredBy:
+          user.referred_by || null,
+
+        withdrawStep: null,
+
+        withdrawAmount: null,
+
+        withdrawMethod: null,
+
+        withdrawAccount: null
+      };
+    }
+
+    saveLocalDB();
+
+    console.log(
+      "✅ Data saldo berhasil dimuat dari Supabase:",
+      data.length,
+      "user"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Supabase startup error:",
+      error.message
+    );
+  }
+}
+
+// ==========================================
 // JALANKAN BOT
 // ==========================================
 
 async function startBot() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*");
 
-  if (error) {
-    console.error("Gagal mengambil data Supabase:", error.message);
-  } else if (data) {
-    for (const user of data) {
-      db.users[String(user.id)] = {
-        ...db.users[String(user.id)],
-        id: String(user.id),
-        balance: Number(user.balance || 0),
-        referrals: Number(user.referrals || 0),
-        referredBy: user.referred_by || null
-      };
-    }
+  console.log(
+    "🔄 Mengambil data saldo dari Supabase..."
+  );
 
-    console.log("✅ Data user berhasil dimuat dari Supabase");
-  }
+  await loadUsersFromSupabase();
 
-  bot.launch();
+  await bot.launch();
+
+  console.log(
+    "✅ CUAN REWARD BOT AKTIF"
+  );
 }
 
 startBot();
-
-console.log(
-  "✅ CUAN REWARD BOT AKTIF"
-);
 
 // ==========================================
 // STOP
