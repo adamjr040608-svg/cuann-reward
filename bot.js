@@ -46,6 +46,14 @@ function saveDB() {
     DB_FILE,
     JSON.stringify(db, null, 2)
   );
+
+  Promise.all(
+    Object.values(db.users).map(user =>
+      saveUserToSupabase(user)
+    )
+  ).catch(error => {
+    console.error("Gagal sinkron ke Supabase:", error.message);
+  });
 }
 
 async function saveUserToSupabase(user) {
