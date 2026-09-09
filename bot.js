@@ -1257,7 +1257,31 @@ bot.catch((error) => {
 // JALANKAN BOT
 // ==========================================
 
-bot.launch();
+async function startBot() {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*");
+
+  if (error) {
+    console.error("Gagal mengambil data Supabase:", error.message);
+  } else if (data) {
+    for (const user of data) {
+      db.users[String(user.id)] = {
+        ...db.users[String(user.id)],
+        id: String(user.id),
+        balance: Number(user.balance || 0),
+        referrals: Number(user.referrals || 0),
+        referredBy: user.referred_by || null
+      };
+    }
+
+    console.log("✅ Data user berhasil dimuat dari Supabase");
+  }
+
+  bot.launch();
+}
+
+startBot();
 
 console.log(
   "✅ CUAN REWARD BOT AKTIF"
