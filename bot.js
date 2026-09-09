@@ -255,105 +255,57 @@ async function dashboard(ctx) {
 
 bot.start(async (ctx) => {
 
-  const joined =
-    await isMember(ctx);
+  const user = getUser(ctx.from.id);
+  const ref = ctx.startPayload || "";
 
-  if (!joined) {
-
-    return showJoin(ctx);
-  }
-
-  const user =
-    getUser(ctx.from.id);
-
-  const startPayload =
-    ctx.startPayload || "";
-
-  // ========================================
-  // REFERRAL
-  // ========================================
-
+  // PROSES REFERRAL
   if (
-
-    startPayload &&
-
-    startPayload !==
-    String(ctx.from.id) &&
-
-    !user.referredBy
-
+    ref &&
+    ref !== String(ctx.from.id) &&
+    !user.referredBy &&
+    db.users[ref]
   ) {
 
-    const referrerId =
-      String(startPayload);
+    user.referredBy = ref;
 
-    const referrer =
-      db.users[referrerId];
+    db.users[ref].referrals += 1;
 
-    if (referrer) {
+    db.users[ref].balance +=
+      config.REFERRAL_BONUS;
 
-      user.referredBy =
-        referrerId;
+    saveDB();
 
-      referrer.referrals +=
-        1;
-
-      referrer.balance +=
-        config.REFERRAL_BONUS;
-
-      saveDB();
-
-      // Notifikasi referral
-
-      try {
-
-        await bot.telegram.sendMessage(
-
-          referrerId,
-
-          "🎉 REFERRAL BERHASIL!\n" +
-          "━━━━━━━━━━━━━━━━━━━━\n\n" +
-
-          "👤 Teman baru berhasil bergabung\n" +
-          "melalui link referral kamu.\n\n" +
-
-          "🎁 Bonus Referral: Rp " +
-
-          config.REFERRAL_BONUS
-            .toLocaleString("id-ID") +
-
-          "\n\n" +
-
-          "💰 Saldo sekarang: Rp " +
-
-          referrer.balance
-            .toLocaleString("id-ID") +
-
-          "\n" +
-
-          "👥 Total Referral: " +
-
-          referrer.referrals +
-
-          " Orang"
-
-        );
-
-      } catch (error) {
-
-        console.log(
-          "Gagal mengirim notifikasi referral:",
-          error.message
-        );
-
-      }
-
+    try {
+      await bot.telegram.sendMessage(
+        ref,
+        "🎉 REFERRAL BERHASIL!\n" +
+        "━━━━━━━━━━━━━━━━━━━━\n\n" +
+        "👤 Teman baru masuk melalui link kamu.\n\n" +
+        "🎁 Bonus: Rp " +
+        config.REFERRAL_BONUS.toLocaleString("id-ID") +
+        "\n\n" +
+        "💰 Saldo sekarang: Rp " +
+        db.users[ref].balance.toLocaleString("id-ID") +
+        "\n" +
+        "👥 Referral: " +
+        db.users[ref].referrals +
+        " Orang"
+      );
+    } catch (error) {
+      console.log(
+        "Gagal kirim notifikasi referral:",
+        error.message
+      );
     }
+  }
+
+  // CEK WAJIB JOIN SETELAH REFERRAL DIPROSES
+  if (!(await isMember(ctx))) {
+    return showJoin(ctx);
   }
 
   return dashboard(ctx);
 });
-
 // ==========================================
 // CEK JOIN
 // ==========================================
