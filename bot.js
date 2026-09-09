@@ -48,6 +48,21 @@ function saveDB() {
   );
 }
 
+async function saveUserToSupabase(user) {
+  const { error } = await supabase
+    .from("users")
+    .upsert({
+      id: String(user.id),
+      balance: Number(user.balance || 0),
+      referrals: Number(user.referrals || 0),
+      referred_by: user.referredBy ? String(user.referredBy) : null
+    });
+
+  if (error) {
+    console.error("Supabase save error:", error.message);
+  }
+}
+
 // ==========================================
 // USER
 // ==========================================
